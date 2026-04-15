@@ -302,6 +302,15 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
           Computing statistics...
         </div>
         <div id="stats-results" class="stats-results"></div>
+        <div id="stats-stepper" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #2a2a4a">
+          <div style="font-size:.8em;color:#888;text-align:center;margin-bottom:6px">Time-Series Step</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="tool-btn" id="stats-step-back" onclick="statsStepYear(-1)">&#9664;</button>
+            <div id="stats-step-year" style="flex:1;text-align:center;font-size:1.1em;color:#00d2ff;font-weight:600">----</div>
+            <button class="tool-btn" id="stats-step-fwd" onclick="statsStepYear(1)">&#9654;</button>
+          </div>
+          <div id="stats-step-range" style="font-size:.75em;color:#666;text-align:center;margin-top:4px"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -314,6 +323,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // Configuration (injected by Python)
 // =====================================================================
 var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "sunstone_lulc_9classes Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
+var DATASET_YEARS = {"sunstone_kenya_lulc_9C": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "dynamicworld": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "esri_lulc": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "worldcover": [2021, 2020], "glad_glclu": [2020], "glc_fcs30d": [2021, 2020, 2019]};
 
 // =====================================================================
 // Map Initialization
@@ -645,6 +655,7 @@ function displayGeoJSON(geojson){
 // ToolBox — Area Statistics
 // =====================================================================
 var statsRect = null;
+var lastStatsQuery = null; // {type:'bbox',bounds:L.LatLngBounds} or {type:'geometry',geojson:obj}
 
 function updateStatsVisibility(){
     var noLayer=document.getElementById('stats-no-layer');
@@ -682,6 +693,8 @@ function clearStatsRect(){
     document.getElementById('stats-clear-btn').style.display='none';
     document.getElementById('stats-draw-btn').classList.remove('active');
     document.getElementById('stats-poly-btn').classList.remove('active');
+    document.getElementById('stats-stepper').style.display='none';
+    lastStatsQuery=null;
 }
 function handleStatsFileUpload(input){
     if(!input.files||!input.files[0]||!activeOverlay) return;
@@ -717,12 +730,14 @@ function applyStatsGeometry(geojson){
     document.getElementById('stats-clear-btn').style.display='inline-block';
     fetchAreaStatsGeometry(geojson);
 }
-function fetchAreaStats(bounds){
-    if(!activeOverlay) return;
+function fetchAreaStats(bounds,layerIdOverride){
+    var lid=layerIdOverride||activeOverlay.layerId;
+    if(!lid) return;
+    lastStatsQuery={type:'bbox',bounds:bounds};
     var el=document.getElementById('stats-results');
     document.getElementById('stats-loading').style.display='block';
     el.innerHTML='';
-    var params='layer_id='+encodeURIComponent(activeOverlay.layerId)
+    var params='layer_id='+encodeURIComponent(lid)
         +'&south='+bounds.getSouth()+'&north='+bounds.getNorth()
         +'&west='+bounds.getWest()+'&east='+bounds.getEast();
     fetch('/api/stats?'+params)
@@ -731,27 +746,31 @@ function fetchAreaStats(bounds){
             document.getElementById('stats-loading').style.display='none';
             if(d.error){el.innerHTML='<div style="color:#e74c3c">'+d.error+'</div>';return}
             renderStatsResults(d);
+            updateStatsStepper();
         })
         .catch(function(){
             document.getElementById('stats-loading').style.display='none';
             el.innerHTML='<div style="color:#e74c3c">Request failed</div>';
         });
 }
-function fetchAreaStatsGeometry(geojson){
-    if(!activeOverlay) return;
+function fetchAreaStatsGeometry(geojson,layerIdOverride){
+    var lid=layerIdOverride||activeOverlay.layerId;
+    if(!lid) return;
+    lastStatsQuery={type:'geometry',geojson:geojson};
     var el=document.getElementById('stats-results');
     document.getElementById('stats-loading').style.display='block';
     el.innerHTML='';
     fetch('/api/stats',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({layer_id:activeOverlay.layerId,geometry:geojson})
+        body:JSON.stringify({layer_id:lid,geometry:geojson})
     })
         .then(function(r){return r.json()})
         .then(function(d){
             document.getElementById('stats-loading').style.display='none';
             if(d.error){el.innerHTML='<div style="color:#e74c3c">'+d.error+'</div>';return}
             renderStatsResults(d);
+            updateStatsStepper();
         })
         .catch(function(){
             document.getElementById('stats-loading').style.display='none';
@@ -793,6 +812,46 @@ function renderStatsResults(data){
         }
     }
     el.innerHTML=html;
+}
+
+// =====================================================================
+// Area Statistics — Time-Series Step
+// =====================================================================
+function updateStatsStepper(){
+    var stepper=document.getElementById('stats-stepper');
+    if(!activeOverlay||activeOverlay.datasetKey==='similarity'||!lastStatsQuery){
+        stepper.style.display='none';
+        return;
+    }
+    var years=DATASET_YEARS[activeOverlay.datasetKey];
+    if(!years||years.length<2){
+        stepper.style.display='none';
+        return;
+    }
+    stepper.style.display='block';
+    document.getElementById('stats-step-year').textContent=activeOverlay.year;
+    var idx=years.indexOf(activeOverlay.year);
+    document.getElementById('stats-step-back').disabled=(idx>=years.length-1);
+    document.getElementById('stats-step-fwd').disabled=(idx<=0);
+    document.getElementById('stats-step-range').textContent=years[years.length-1]+' \u2013 '+years[0];
+}
+function statsStepYear(direction){
+    if(!activeOverlay||activeOverlay.datasetKey==='similarity'||!lastStatsQuery) return;
+    var years=DATASET_YEARS[activeOverlay.datasetKey];
+    if(!years) return;
+    var idx=years.indexOf(activeOverlay.year);
+    var newIdx=idx-direction;
+    if(newIdx<0||newIdx>=years.length) return;
+    var newYear=years[newIdx];
+    var newLayerId=activeOverlay.datasetKey+'_'+newYear;
+    // Switch the active layer to the new year
+    selectLayer(activeOverlay.datasetKey,newYear);
+    // Re-run stats with same geometry but new layer
+    if(lastStatsQuery.type==='bbox'){
+        fetchAreaStats(lastStatsQuery.bounds,newLayerId);
+    } else {
+        fetchAreaStatsGeometry(lastStatsQuery.geojson,newLayerId);
+    }
 }
 
 // =====================================================================

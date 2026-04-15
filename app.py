@@ -243,6 +243,11 @@ def build_legend_data():
 def generate_html(datasets, legend_data):
     """Generate complete Leaflet.js HTML map page."""
 
+    # Build dataset years lookup for the time-series stepper
+    dataset_years_map = {}
+    for ds in datasets:
+        dataset_years_map[ds["key"]] = [yi["year"] for yi in ds["years"]]
+
     # Build sidebar dataset HTML
     sidebar_datasets = ""
     for ds in datasets:
@@ -504,6 +509,15 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
           Computing statistics...
         </div>
         <div id="stats-results" class="stats-results"></div>
+        <div id="stats-stepper" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #2a2a4a">
+          <div style="font-size:.8em;color:#888;text-align:center;margin-bottom:6px">Time-Series Step</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="tool-btn" id="stats-step-back" onclick="statsStepYear(-1)">&#9664;</button>
+            <div id="stats-step-year" style="flex:1;text-align:center;font-size:1.1em;color:#00d2ff;font-weight:600">----</div>
+            <button class="tool-btn" id="stats-step-fwd" onclick="statsStepYear(1)">&#9654;</button>
+          </div>
+          <div id="stats-step-range" style="font-size:.75em;color:#666;text-align:center;margin-top:4px"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -516,6 +530,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // Configuration (injected by Python)
 // =====================================================================
 var LEGEND_DATA = __LEGEND_DATA__;
+var DATASET_YEARS = __DATASET_YEARS__;
 
 // =====================================================================
 // Map Initialization
@@ -847,6 +862,7 @@ function displayGeoJSON(geojson){
 // ToolBox — Area Statistics
 // =====================================================================
 var statsRect = null;
+var lastStatsQuery = null; // {type:'bbox',bounds:L.LatLngBounds} or {type:'geometry',geojson:obj}
 
 function updateStatsVisibility(){
     var noLayer=document.getElementById('stats-no-layer');
@@ -884,6 +900,8 @@ function clearStatsRect(){
     document.getElementById('stats-clear-btn').style.display='none';
     document.getElementById('stats-draw-btn').classList.remove('active');
     document.getElementById('stats-poly-btn').classList.remove('active');
+    document.getElementById('stats-stepper').style.display='none';
+    lastStatsQuery=null;
 }
 function handleStatsFileUpload(input){
     if(!input.files||!input.files[0]||!activeOverlay) return;
@@ -919,12 +937,14 @@ function applyStatsGeometry(geojson){
     document.getElementById('stats-clear-btn').style.display='inline-block';
     fetchAreaStatsGeometry(geojson);
 }
-function fetchAreaStats(bounds){
-    if(!activeOverlay) return;
+function fetchAreaStats(bounds,layerIdOverride){
+    var lid=layerIdOverride||activeOverlay.layerId;
+    if(!lid) return;
+    lastStatsQuery={type:'bbox',bounds:bounds};
     var el=document.getElementById('stats-results');
     document.getElementById('stats-loading').style.display='block';
     el.innerHTML='';
-    var params='layer_id='+encodeURIComponent(activeOverlay.layerId)
+    var params='layer_id='+encodeURIComponent(lid)
         +'&south='+bounds.getSouth()+'&north='+bounds.getNorth()
         +'&west='+bounds.getWest()+'&east='+bounds.getEast();
     fetch('/api/stats?'+params)
@@ -933,27 +953,31 @@ function fetchAreaStats(bounds){
             document.getElementById('stats-loading').style.display='none';
             if(d.error){el.innerHTML='<div style="color:#e74c3c">'+d.error+'</div>';return}
             renderStatsResults(d);
+            updateStatsStepper();
         })
         .catch(function(){
             document.getElementById('stats-loading').style.display='none';
             el.innerHTML='<div style="color:#e74c3c">Request failed</div>';
         });
 }
-function fetchAreaStatsGeometry(geojson){
-    if(!activeOverlay) return;
+function fetchAreaStatsGeometry(geojson,layerIdOverride){
+    var lid=layerIdOverride||activeOverlay.layerId;
+    if(!lid) return;
+    lastStatsQuery={type:'geometry',geojson:geojson};
     var el=document.getElementById('stats-results');
     document.getElementById('stats-loading').style.display='block';
     el.innerHTML='';
     fetch('/api/stats',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({layer_id:activeOverlay.layerId,geometry:geojson})
+        body:JSON.stringify({layer_id:lid,geometry:geojson})
     })
         .then(function(r){return r.json()})
         .then(function(d){
             document.getElementById('stats-loading').style.display='none';
             if(d.error){el.innerHTML='<div style="color:#e74c3c">'+d.error+'</div>';return}
             renderStatsResults(d);
+            updateStatsStepper();
         })
         .catch(function(){
             document.getElementById('stats-loading').style.display='none';
@@ -998,6 +1022,46 @@ function renderStatsResults(data){
 }
 
 // =====================================================================
+// Area Statistics — Time-Series Step
+// =====================================================================
+function updateStatsStepper(){
+    var stepper=document.getElementById('stats-stepper');
+    if(!activeOverlay||activeOverlay.datasetKey==='similarity'||!lastStatsQuery){
+        stepper.style.display='none';
+        return;
+    }
+    var years=DATASET_YEARS[activeOverlay.datasetKey];
+    if(!years||years.length<2){
+        stepper.style.display='none';
+        return;
+    }
+    stepper.style.display='block';
+    document.getElementById('stats-step-year').textContent=activeOverlay.year;
+    var idx=years.indexOf(activeOverlay.year);
+    document.getElementById('stats-step-back').disabled=(idx>=years.length-1);
+    document.getElementById('stats-step-fwd').disabled=(idx<=0);
+    document.getElementById('stats-step-range').textContent=years[years.length-1]+' \u2013 '+years[0];
+}
+function statsStepYear(direction){
+    if(!activeOverlay||activeOverlay.datasetKey==='similarity'||!lastStatsQuery) return;
+    var years=DATASET_YEARS[activeOverlay.datasetKey];
+    if(!years) return;
+    var idx=years.indexOf(activeOverlay.year);
+    var newIdx=idx-direction;
+    if(newIdx<0||newIdx>=years.length) return;
+    var newYear=years[newIdx];
+    var newLayerId=activeOverlay.datasetKey+'_'+newYear;
+    // Switch the active layer to the new year
+    selectLayer(activeOverlay.datasetKey,newYear);
+    // Re-run stats with same geometry but new layer
+    if(lastStatsQuery.type==='bbox'){
+        fetchAreaStats(lastStatsQuery.bounds,newLayerId);
+    } else {
+        fetchAreaStatsGeometry(lastStatsQuery.geojson,newLayerId);
+    }
+}
+
+// =====================================================================
 // draw:created event — routes to correct tool handler
 // =====================================================================
 map.on('draw:created', function(e){
@@ -1036,6 +1100,7 @@ setTimeout(function(){map.invalidateSize()}, 200);
     html = html.replace("__LEGEND_DATA__", json.dumps(legend_data))
     html = html.replace("__KENYA_CENTER__", json.dumps(KENYA_CENTER))
     html = html.replace("__KENYA_ZOOM__", str(KENYA_ZOOM))
+    html = html.replace("__DATASET_YEARS__", json.dumps(dataset_years_map))
     return html
 
 
