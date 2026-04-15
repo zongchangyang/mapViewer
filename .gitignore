@@ -1,0 +1,12 @@
+# Large raster data files — never commit these to git
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.claude/

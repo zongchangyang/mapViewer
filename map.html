@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KenyaMap — Kenya Land Cover Viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.container{display:flex;height:100vh}
+
+/* ── Sidebar ────────────────────────────────────────────────────────── */
+#sidebar{
+  width:300px;flex-shrink:0;background:#1a1a2e;color:#e0e0e0;
+  overflow-y:auto;display:flex;flex-direction:column;z-index:1000;
+}
+#sidebar h1{
+  font-size:1.3em;padding:16px 20px;background:#16213e;
+  color:#00d2ff;letter-spacing:.5px;flex-shrink:0;
+}
+.sidebar-section{padding:12px 0;border-bottom:1px solid #2a2a4a}
+.sidebar-section h3{
+  font-size:.75em;text-transform:uppercase;letter-spacing:1px;
+  color:#888;padding:0 20px 8px;
+}
+.dataset-header{
+  padding:8px 20px;cursor:pointer;display:flex;align-items:center;
+  transition:background .2s;font-size:.9em;gap:6px;
+}
+.dataset-header:hover{background:#2a2a4a}
+.dataset-header.active{background:#0f3460}
+.dataset-header .arrow{
+  display:inline-block;width:14px;font-size:.7em;transition:transform .2s;
+}
+.dataset-header.expanded .arrow{transform:rotate(90deg)}
+.dataset-years{display:none;padding:4px 0;background:#12122a}
+.dataset-years.show{display:block}
+.year-item{
+  padding:5px 20px 5px 52px;cursor:pointer;font-size:.85em;
+  color:#aaa;transition:all .15s;
+}
+.year-item:hover{background:#2a2a4a;color:#fff}
+.year-item.active{background:#0f3460;color:#00d2ff;font-weight:600}
+.sim-item{
+  padding:8px 20px 8px 36px;cursor:pointer;font-size:.9em;transition:background .2s;
+}
+.sim-item:hover{background:#2a2a4a}
+.sim-item.active{background:#0f3460;color:#00d2ff}
+.basemap-option{
+  padding:6px 20px 6px 36px;cursor:pointer;font-size:.85em;
+  color:#aaa;transition:all .15s;
+}
+.basemap-option:hover{background:#2a2a4a;color:#fff}
+.basemap-option.active{color:#00d2ff}
+.opacity-section{padding:12px 20px}
+.opacity-section label{font-size:.85em;color:#aaa}
+.opacity-section input[type=range]{width:100%;margin-top:6px;accent-color:#00d2ff}
+.opacity-value{float:right;font-size:.85em;color:#00d2ff}
+.clear-btn{
+  display:none;margin:8px 20px;padding:6px 12px;background:#c0392b;
+  color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.8em;
+}
+.clear-btn.show{display:block}
+.clear-btn:hover{background:#e74c3c}
+
+/* ── Map ────────────────────────────────────────────────────────────── */
+#map{flex:1;z-index:1}
+
+/* ── Legend ──────────────────────────────────────────────────────────── */
+.legend-control{
+  background:rgba(255,255,255,.92);padding:10px 14px;border-radius:8px;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);max-height:400px;overflow-y:auto;
+  min-width:160px;
+}
+.legend-control h4{margin:0 0 8px;font-size:.85em;color:#333}
+.legend-entry{display:flex;align-items:center;margin:3px 0;font-size:.8em;color:#444}
+.legend-swatch{
+  width:16px;height:16px;border-radius:2px;margin-right:8px;
+  flex-shrink:0;border:1px solid rgba(0,0,0,.15);
+}
+.legend-gradient{
+  width:100%;height:16px;border-radius:2px;margin:6px 0 4px;
+  border:1px solid rgba(0,0,0,.15);
+}
+.legend-gradient-labels{
+  display:flex;justify-content:space-between;font-size:.75em;color:#666;
+}
+
+/* ── Loading overlay ────────────────────────────────────────────────── */
+.loading-overlay{
+  display:none;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:2000;
+  background:rgba(0,0,0,.7);color:#fff;padding:16px 24px;
+  border-radius:8px;font-size:.9em;pointer-events:none;
+}
+.loading-overlay.show{display:block}
+
+/* ── Pixel popup ────────────────────────────────────────────────────── */
+.pixel-info{font-size:13px;line-height:1.6}
+.pixel-info .pi-class{font-weight:600}
+.pixel-info .pi-swatch{
+  display:inline-block;width:12px;height:12px;border-radius:2px;
+  margin-right:4px;vertical-align:middle;border:1px solid rgba(0,0,0,.2);
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+<div id="sidebar">
+  <h1>KenyaMap</h1>
+
+  <div class="sidebar-section">
+    <h3>Basemap</h3>
+    <div class="basemap-option" id="bm-osm" onclick="setBasemap('osm')">
+      OpenStreetMap
+    </div>
+    <div class="basemap-option active" id="bm-esri" onclick="setBasemap('esri')">
+      ESRI World Imagery
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>LULC Layers</h3>
+    <div class="dataset-group">
+  <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> Sunstone LULC</div>
+  <div class="dataset-years">
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2025" onclick="selectLayer('sunstone_kenya_lulc_9C', 2025)">2025</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2024" onclick="selectLayer('sunstone_kenya_lulc_9C', 2024)">2024</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2023" onclick="selectLayer('sunstone_kenya_lulc_9C', 2023)">2023</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2022" onclick="selectLayer('sunstone_kenya_lulc_9C', 2022)">2022</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2021" onclick="selectLayer('sunstone_kenya_lulc_9C', 2021)">2021</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2020" onclick="selectLayer('sunstone_kenya_lulc_9C', 2020)">2020</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2019" onclick="selectLayer('sunstone_kenya_lulc_9C', 2019)">2019</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2018" onclick="selectLayer('sunstone_kenya_lulc_9C', 2018)">2018</div>
+    <div class="year-item" id="yi-sunstone_kenya_lulc_9C_2017" onclick="selectLayer('sunstone_kenya_lulc_9C', 2017)">2017</div>
+  </div>
+</div>
+<div class="dataset-group">
+  <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> Dynamic World</div>
+  <div class="dataset-years">
+    <div class="year-item" id="yi-dynamicworld_2025" onclick="selectLayer('dynamicworld', 2025)">2025</div>
+    <div class="year-item" id="yi-dynamicworld_2024" onclick="selectLayer('dynamicworld', 2024)">2024</div>
+    <div class="year-item" id="yi-dynamicworld_2023" onclick="selectLayer('dynamicworld', 2023)">2023</div>
+    <div class="year-item" id="yi-dynamicworld_2022" onclick="selectLayer('dynamicworld', 2022)">2022</div>
+    <div class="year-item" id="yi-dynamicworld_2021" onclick="selectLayer('dynamicworld', 2021)">2021</div>
+    <div class="year-item" id="yi-dynamicworld_2020" onclick="selectLayer('dynamicworld', 2020)">2020</div>
+    <div class="year-item" id="yi-dynamicworld_2019" onclick="selectLayer('dynamicworld', 2019)">2019</div>
+    <div class="year-item" id="yi-dynamicworld_2018" onclick="selectLayer('dynamicworld', 2018)">2018</div>
+    <div class="year-item" id="yi-dynamicworld_2017" onclick="selectLayer('dynamicworld', 2017)">2017</div>
+  </div>
+</div>
+<div class="dataset-group">
+  <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> ESRI LULC</div>
+  <div class="dataset-years">
+    <div class="year-item" id="yi-esri_lulc_2024" onclick="selectLayer('esri_lulc', 2024)">2024</div>
+    <div class="year-item" id="yi-esri_lulc_2023" onclick="selectLayer('esri_lulc', 2023)">2023</div>
+    <div class="year-item" id="yi-esri_lulc_2022" onclick="selectLayer('esri_lulc', 2022)">2022</div>
+    <div class="year-item" id="yi-esri_lulc_2021" onclick="selectLayer('esri_lulc', 2021)">2021</div>
+    <div class="year-item" id="yi-esri_lulc_2020" onclick="selectLayer('esri_lulc', 2020)">2020</div>
+    <div class="year-item" id="yi-esri_lulc_2019" onclick="selectLayer('esri_lulc', 2019)">2019</div>
+    <div class="year-item" id="yi-esri_lulc_2018" onclick="selectLayer('esri_lulc', 2018)">2018</div>
+    <div class="year-item" id="yi-esri_lulc_2017" onclick="selectLayer('esri_lulc', 2017)">2017</div>
+  </div>
+</div>
+<div class="dataset-group">
+  <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> ESA WorldCover</div>
+  <div class="dataset-years">
+    <div class="year-item" id="yi-worldcover_2021" onclick="selectLayer('worldcover', 2021)">2021</div>
+    <div class="year-item" id="yi-worldcover_2020" onclick="selectLayer('worldcover', 2020)">2020</div>
+  </div>
+</div>
+<div class="dataset-group">
+  <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> GLAD GLCLU</div>
+  <div class="dataset-years">
+    <div class="year-item" id="yi-glad_glclu_2020" onclick="selectLayer('glad_glclu', 2020)">2020</div>
+  </div>
+</div>
+<div class="dataset-group">
+  <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> GLC_FCS30D</div>
+  <div class="dataset-years">
+    <div class="year-item" id="yi-glc_fcs30d_2021" onclick="selectLayer('glc_fcs30d', 2021)">2021</div>
+    <div class="year-item" id="yi-glc_fcs30d_2020" onclick="selectLayer('glc_fcs30d', 2020)">2020</div>
+    <div class="year-item" id="yi-glc_fcs30d_2019" onclick="selectLayer('glc_fcs30d', 2019)">2019</div>
+  </div>
+</div>
+
+  </div>
+
+  <div class="sidebar-section">
+    <h3>Change Detection</h3>
+    <div class="sim-item" id="sim-item" onclick="selectLayer('similarity',null)">
+      Similarity (2017 vs 2025)
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <button class="clear-btn" id="clear-btn" onclick="clearActiveLayer()">
+      Clear Active Layer
+    </button>
+  </div>
+
+  <div class="sidebar-section opacity-section">
+    <label>Opacity <span class="opacity-value" id="opacity-val">80%</span></label>
+    <input type="range" id="opacity-slider" min="0" max="100" value="80"
+           oninput="setOpacity(this.value)">
+  </div>
+</div>
+
+<!-- ── Map ──────────────────────────────────────────────────────────── -->
+<div id="map">
+  <div class="loading-overlay" id="loading">Loading tiles&hellip;</div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// =====================================================================
+// Configuration (injected by Python)
+// =====================================================================
+var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "sunstone_lulc_9classes Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
+
+// =====================================================================
+// Map Initialization
+// =====================================================================
+var map = L.map('map', {
+    center: [0.0236, 37.9062],
+    zoom: 6,
+    zoomControl: true
+});
+
+var basemaps = {
+    esri: L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {attribution:'Tiles &copy; Esri', maxZoom:18}
+    ),
+    osm: L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}
+    )
+};
+basemaps.esri.addTo(map);
+
+// =====================================================================
+// State
+// =====================================================================
+var activeOverlay  = null;   // {datasetKey, year, layerId, tileLayer}
+var currentOpacity = 0.8;
+var currentBasemap = 'esri';
+var tileUrlCache   = {};     // layerId -> tileUrl
+
+// =====================================================================
+// Legend Control
+// =====================================================================
+var legendControl = L.control({position:'topright'});
+legendControl.onAdd = function(){
+    this._div = L.DomUtil.create('div','legend-control');
+    this._div.style.display = 'none';
+    L.DomEvent.disableClickPropagation(this._div);
+    L.DomEvent.disableScrollPropagation(this._div);
+    return this._div;
+};
+legendControl.addTo(map);
+
+function updateLegend(datasetKey){
+    var div = legendControl._div;
+    if(!datasetKey || !LEGEND_DATA[datasetKey]){
+        div.style.display='none'; return;
+    }
+    var d = LEGEND_DATA[datasetKey], html = '<h4>'+d.title+'</h4>';
+    if(d.type==='continuous'){
+        html += '<div class="legend-gradient" style="background:linear-gradient(to right,'+d.colors.join(',')+')"></div>';
+        html += '<div class="legend-gradient-labels"><span>'+d.min_label+'</span><span>'+d.max_label+'</span></div>';
+    } else {
+        for(var i=0;i<d.entries.length;i++){
+            var e=d.entries[i];
+            html += '<div class="legend-entry"><div class="legend-swatch" style="background:'+e.color+'"></div><span>'+e.name+'</span></div>';
+        }
+    }
+    div.innerHTML = html;
+    div.style.display = 'block';
+}
+
+// =====================================================================
+// Layer Management
+// =====================================================================
+function showLoading(){document.getElementById('loading').classList.add('show')}
+function hideLoading(){document.getElementById('loading').classList.remove('show')}
+
+function selectLayer(datasetKey, year){
+    var layerId = year !== null ? datasetKey+'_'+year : datasetKey;
+    if(activeOverlay && activeOverlay.layerId === layerId){ clearActiveLayer(); return; }
+
+    if(tileUrlCache[layerId]){
+        applyLayer(datasetKey, year, layerId, tileUrlCache[layerId]);
+        return;
+    }
+
+    showLoading();
+    fetch('/api/activate?layer_id='+encodeURIComponent(layerId))
+        .then(function(r){return r.json()})
+        .then(function(data){
+            hideLoading();
+            if(data.error){alert('Error: '+data.error);return}
+            tileUrlCache[layerId] = data.tile_url;
+            applyLayer(datasetKey, year, layerId, data.tile_url);
+        })
+        .catch(function(err){hideLoading();alert('Failed: '+err)});
+}
+
+function applyLayer(datasetKey, year, layerId, tileUrl){
+    if(activeOverlay && activeOverlay.tileLayer) map.removeLayer(activeOverlay.tileLayer);
+
+    var layer = L.tileLayer(tileUrl, {
+        opacity: currentOpacity,
+        maxZoom: 18,
+        crossOrigin: true
+    });
+    layer.addTo(map);
+    activeOverlay = {datasetKey:datasetKey, year:year, layerId:layerId, tileLayer:layer};
+
+    updateLegend(datasetKey);
+    updateSidebarHighlight(layerId);
+    document.getElementById('clear-btn').classList.add('show');
+}
+
+function clearActiveLayer(){
+    if(activeOverlay && activeOverlay.tileLayer) map.removeLayer(activeOverlay.tileLayer);
+    activeOverlay = null;
+    updateLegend(null);
+    updateSidebarHighlight(null);
+    document.getElementById('clear-btn').classList.remove('show');
+}
+
+// =====================================================================
+// Sidebar Interaction
+// =====================================================================
+function toggleGroup(el){
+    el.classList.toggle('expanded');
+    el.nextElementSibling.classList.toggle('show');
+}
+
+function updateSidebarHighlight(activeLayerId){
+    document.querySelectorAll('.dataset-header').forEach(function(h){h.classList.remove('active')});
+    document.querySelectorAll('.year-item').forEach(function(y){y.classList.remove('active')});
+    document.getElementById('sim-item').classList.remove('active');
+
+    if(!activeLayerId) return;
+
+    if(activeLayerId==='similarity'){
+        document.getElementById('sim-item').classList.add('active');
+        return;
+    }
+
+    var el = document.getElementById('yi-'+activeLayerId);
+    if(el){
+        el.classList.add('active');
+        var group = el.closest('.dataset-group');
+        if(group){
+            var hdr = group.querySelector('.dataset-header');
+            hdr.classList.add('active','expanded');
+            group.querySelector('.dataset-years').classList.add('show');
+        }
+    }
+}
+
+// =====================================================================
+// Basemap & Opacity
+// =====================================================================
+function setBasemap(name){
+    if(name===currentBasemap) return;
+    map.removeLayer(basemaps[currentBasemap]);
+    basemaps[name].addTo(map);
+    // Ensure overlay stays on top
+    if(activeOverlay && activeOverlay.tileLayer) activeOverlay.tileLayer.bringToFront();
+    currentBasemap = name;
+    document.querySelectorAll('.basemap-option').forEach(function(o){o.classList.remove('active')});
+    document.getElementById('bm-'+name).classList.add('active');
+}
+
+function setOpacity(val){
+    currentOpacity = val/100;
+    document.getElementById('opacity-val').textContent = val+'%';
+    if(activeOverlay && activeOverlay.tileLayer) activeOverlay.tileLayer.setOpacity(currentOpacity);
+}
+
+// =====================================================================
+// Click / Pixel Inspector
+// =====================================================================
+map.on('click', function(e){
+    if(!activeOverlay) return;
+    var lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
+    fetch('/api/query?lat='+lat+'&lng='+lng+'&layer_id='+encodeURIComponent(activeOverlay.layerId))
+        .then(function(r){return r.json()})
+        .then(function(d){
+            if(d.error) return;
+            var c = '<div class="pixel-info">';
+            if(d.class_name){
+                c += '<div><span class="pi-swatch" style="background:'+d.color+'"></span>';
+                c += '<span class="pi-class">'+d.class_name+'</span></div>';
+            } else if(d.description){
+                c += '<div><span class="pi-swatch" style="background:'+d.color+'"></span>';
+                c += '<span class="pi-class">'+d.description+'</span></div>';
+            }
+            c += '<div>Pixel value: '+d.value+'</div>';
+            c += '<div style="color:#888;font-size:11px">'+lat+', '+lng+'</div></div>';
+            L.popup().setLatLng(e.latlng).setContent(c).openOn(map);
+        })
+        .catch(function(){});
+});
+
+// Make sure map fills its container
+setTimeout(function(){map.invalidateSize()}, 200);
+</script>
+</body>
+</html>
