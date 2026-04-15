@@ -493,6 +493,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="tool-section-body">
       <button class="tool-btn" id="geojson-point-btn" onclick="startGeoJSONDraw('point')">Draw Point</button>
       <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
+      <button class="tool-btn" id="geojson-poly-btn" onclick="startGeoJSONDraw('polygon')">Draw Polygon</button>
       <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
       <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleFileUpload(this)">
       <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
@@ -511,7 +512,10 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="tool-section-body">
       <div id="stats-no-layer" class="no-layer-msg">Select a layer first</div>
       <div id="stats-controls" style="display:none">
-        <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw()">Draw Rectangle</button>
+        <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw('rect')">Draw Rectangle</button>
+        <button class="tool-btn" id="stats-poly-btn" onclick="startStatsDraw('poly')">Draw Polygon</button>
+        <button class="tool-btn" id="stats-upload-btn" onclick="document.getElementById('stats-file-input').click()">Upload File</button>
+        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleStatsFileUpload(this)">
         <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
         <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">
           Computing statistics...
@@ -768,6 +772,12 @@ function startGeoJSONDraw(type){
         activeDrawMode='geojson-point';
         new L.Draw.Marker(map,{}).enable();
         document.getElementById('geojson-point-btn').classList.add('active');
+    } else if(type==='polygon'){
+        activeDrawMode='geojson-poly';
+        new L.Draw.Polygon(map,{
+            shapeOptions:{color:'#ff6b6b',weight:2,fillOpacity:.1}
+        }).enable();
+        document.getElementById('geojson-poly-btn').classList.add('active');
     } else {
         activeDrawMode='geojson-rect';
         new L.Draw.Rectangle(map,{
@@ -781,6 +791,7 @@ function handleGeoJSONDrawn(e){
     drawnItems.addLayer(geojsonLayer);
     document.getElementById('geojson-point-btn').classList.remove('active');
     document.getElementById('geojson-rect-btn').classList.remove('active');
+    document.getElementById('geojson-poly-btn').classList.remove('active');
     document.getElementById('geojson-clear-btn').style.display='inline-block';
     document.getElementById('geojson-copy-btn').style.display='inline-block';
     document.getElementById('geojson-save-btn').style.display='inline-block';
@@ -789,6 +800,11 @@ function handleGeoJSONDrawn(e){
     if(e.layerType==='marker'){
         var ll=e.layer.getLatLng();
         geojson={type:'Point',coordinates:[parseFloat(ll.lng.toFixed(6)),parseFloat(ll.lat.toFixed(6))]};
+    } else if(e.layerType==='polygon'){
+        var latlngs=e.layer.getLatLngs()[0];
+        var coords=latlngs.map(function(ll){return[parseFloat(ll.lng.toFixed(6)),parseFloat(ll.lat.toFixed(6))]});
+        coords.push(coords[0]);
+        geojson={type:'Polygon',coordinates:[coords]};
     } else {
         var b=e.layer.getBounds();
         geojson={type:'Polygon',coordinates:[[
@@ -809,6 +825,7 @@ function clearGeoJSON(){
     document.getElementById('geojson-save-btn').style.display='none';
     document.getElementById('geojson-point-btn').classList.remove('active');
     document.getElementById('geojson-rect-btn').classList.remove('active');
+    document.getElementById('geojson-poly-btn').classList.remove('active');
 }
 function copyGeoJSON(){
     var ta=document.getElementById('geojson-output');
@@ -940,20 +957,63 @@ function updateStatsVisibility(){
     }
     document.getElementById('stats-results').innerHTML='';
 }
-function startStatsDraw(){
+function startStatsDraw(type){
     if(!activeOverlay) return;
     clearStatsRect();
-    activeDrawMode='stats';
-    new L.Draw.Rectangle(map,{
-        shapeOptions:{color:'#00d2ff',weight:2,fillOpacity:.15}
-    }).enable();
-    document.getElementById('stats-draw-btn').classList.add('active');
+    if(type==='poly'){
+        activeDrawMode='stats-poly';
+        new L.Draw.Polygon(map,{
+            shapeOptions:{color:'#00d2ff',weight:2,fillOpacity:.15}
+        }).enable();
+        document.getElementById('stats-poly-btn').classList.add('active');
+    } else {
+        activeDrawMode='stats';
+        new L.Draw.Rectangle(map,{
+            shapeOptions:{color:'#00d2ff',weight:2,fillOpacity:.15}
+        }).enable();
+        document.getElementById('stats-draw-btn').classList.add('active');
+    }
 }
 function clearStatsRect(){
     if(statsRect){drawnItems.removeLayer(statsRect);statsRect=null}
     document.getElementById('stats-results').innerHTML='';
     document.getElementById('stats-clear-btn').style.display='none';
     document.getElementById('stats-draw-btn').classList.remove('active');
+    document.getElementById('stats-poly-btn').classList.remove('active');
+}
+function handleStatsFileUpload(input){
+    if(!input.files||!input.files[0]||!activeOverlay) return;
+    var file=input.files[0];
+    var name=file.name.toLowerCase();
+    if(name.endsWith('.zip')||name.endsWith('.shp')){
+        var reader=new FileReader();
+        reader.onload=function(e){
+            shp(e.target.result).then(function(geojson){
+                applyStatsGeometry(geojson);
+            }).catch(function(err){alert('Failed to parse shapefile: '+err)});
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        var reader=new FileReader();
+        reader.onload=function(e){
+            try{
+                var geojson=JSON.parse(e.target.result);
+                applyStatsGeometry(geojson);
+            }catch(err){alert('Failed to parse GeoJSON: '+err)}
+        };
+        reader.readAsText(file);
+    }
+    input.value='';
+}
+function applyStatsGeometry(geojson){
+    clearStatsRect();
+    statsRect=L.geoJSON(geojson,{
+        style:function(){return{color:'#00d2ff',weight:2,fillOpacity:.15}}
+    }).addTo(map);
+    drawnItems.addLayer(statsRect);
+    map.fitBounds(statsRect.getBounds());
+    document.getElementById('stats-clear-btn').style.display='inline-block';
+    fetchAreaStatsGeometry(geojson);
 }
 function fetchAreaStats(bounds){
     if(!activeOverlay) return;
@@ -964,6 +1024,27 @@ function fetchAreaStats(bounds){
         +'&south='+bounds.getSouth()+'&north='+bounds.getNorth()
         +'&west='+bounds.getWest()+'&east='+bounds.getEast();
     fetch('/api/stats?'+params)
+        .then(function(r){return r.json()})
+        .then(function(d){
+            document.getElementById('stats-loading').style.display='none';
+            if(d.error){el.innerHTML='<div style="color:#e74c3c">'+d.error+'</div>';return}
+            renderStatsResults(d);
+        })
+        .catch(function(){
+            document.getElementById('stats-loading').style.display='none';
+            el.innerHTML='<div style="color:#e74c3c">Request failed</div>';
+        });
+}
+function fetchAreaStatsGeometry(geojson){
+    if(!activeOverlay) return;
+    var el=document.getElementById('stats-results');
+    document.getElementById('stats-loading').style.display='block';
+    el.innerHTML='';
+    fetch('/api/stats',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({layer_id:activeOverlay.layerId,geometry:geojson})
+    })
         .then(function(r){return r.json()})
         .then(function(d){
             document.getElementById('stats-loading').style.display='none';
@@ -1023,7 +1104,18 @@ map.on('draw:created', function(e){
         document.getElementById('stats-clear-btn').style.display='inline-block';
         fetchAreaStats(statsRect.getBounds());
         activeDrawMode=null;
-    } else if(activeDrawMode==='geojson-point'||activeDrawMode==='geojson-rect'){
+    } else if(activeDrawMode==='stats-poly'){
+        statsRect=e.layer;
+        drawnItems.addLayer(statsRect);
+        document.getElementById('stats-poly-btn').classList.remove('active');
+        document.getElementById('stats-clear-btn').style.display='inline-block';
+        var latlngs=e.layer.getLatLngs()[0];
+        var coords=latlngs.map(function(ll){return[parseFloat(ll.lng.toFixed(6)),parseFloat(ll.lat.toFixed(6))]});
+        coords.push(coords[0]);
+        var geojson={type:'Polygon',coordinates:[coords]};
+        fetchAreaStatsGeometry(geojson);
+        activeDrawMode=null;
+    } else if(activeDrawMode==='geojson-point'||activeDrawMode==='geojson-rect'||activeDrawMode==='geojson-poly'){
         handleGeoJSONDrawn(e);
         activeDrawMode=null;
     }
@@ -1059,9 +1151,16 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed.path == "/api/query":
             self._handle_query(parsed)
         elif parsed.path == "/api/stats":
-            self._handle_stats(parsed)
+            self._handle_stats_bbox(parsed)
         else:
             super().do_GET()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/stats":
+            self._handle_stats_geometry()
+        else:
+            self.send_error(404)
 
     def _send_json(self, data, status=200):
         body = json.dumps(data).encode("utf-8")
@@ -1174,8 +1273,8 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
 
         self._send_json(result)
 
-    # ── /api/stats ─────────────────────────────────────────────────────
-    def _handle_stats(self, parsed):
+    # ── /api/stats (GET — bounding box) ──────────────────────────────
+    def _handle_stats_bbox(self, parsed):
         """Compute class distribution within a bounding box."""
         qs = parse_qs(parsed.query)
         try:
@@ -1225,6 +1324,65 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
                 # Compute pixel area in km² from transform + center latitude
                 import math
                 center_lat = (south + north) / 2
+                px_deg_x = abs(src.transform.a)
+                px_deg_y = abs(src.transform.e)
+                m_per_deg = 111_320 * math.cos(math.radians(center_lat))
+                pixel_area_km2 = (px_deg_x * m_per_deg) * (px_deg_y * 111_320) / 1e6
+
+        except Exception as e:
+            self._send_json({"error": f"Raster read error: {e}"}, 500)
+            return
+
+        if layer_id == "similarity":
+            result = self._stats_continuous(data, pixel_area_km2)
+        else:
+            dataset_key = resolve_dataset_key(layer_id)
+            result = self._stats_categorical(data, dataset_key, pixel_area_km2)
+
+        self._send_json(result)
+
+    # ── /api/stats (POST — GeoJSON geometry) ───────────────────────────
+    def _handle_stats_geometry(self):
+        """Compute class distribution within an arbitrary GeoJSON geometry."""
+        import math
+        from rasterio.mask import mask as rasterio_mask
+        from shapely.geometry import shape, mapping
+
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length))
+            layer_id = body["layer_id"]
+            geometry = body["geometry"]
+        except (KeyError, ValueError, json.JSONDecodeError) as e:
+            self._send_json({"error": f"Invalid request body: {e}"}, 400)
+            return
+
+        file_path = _file_registry.get(layer_id)
+        if not file_path:
+            self._send_json({"error": f"Unknown layer: {layer_id}"}, 404)
+            return
+
+        # Normalize to a list of shapely geometries
+        try:
+            if geometry.get("type") in ("FeatureCollection",):
+                shapes = [shape(f["geometry"]) for f in geometry["features"]]
+            elif geometry.get("type") == "Feature":
+                shapes = [shape(geometry["geometry"])]
+            else:
+                shapes = [shape(geometry)]
+            geom_jsons = [mapping(s) for s in shapes]
+        except Exception as e:
+            self._send_json({"error": f"Invalid geometry: {e}"}, 400)
+            return
+
+        try:
+            with rasterio.open(file_path) as src:
+                data, _ = rasterio_mask(src, geom_jsons, crop=True,
+                                        nodata=0, filled=True)
+                data = data[0]  # single band
+
+                # Pixel area
+                center_lat = sum(s.centroid.y for s in shapes) / len(shapes)
                 px_deg_x = abs(src.transform.a)
                 px_deg_y = abs(src.transform.e)
                 m_per_deg = 111_320 * math.cos(math.radians(center_lat))
