@@ -18,6 +18,7 @@ import http.server
 import socketserver
 import threading
 
+import numpy as np
 import rasterio
 from localtileserver import TileClient
 
@@ -29,7 +30,7 @@ DATA_DIR = Path("data")
 MAPPING_FILE = Path("dataset_label_mapping.json")
 OUTPUT_HTML = Path("map.html")
 KENYA_CENTER = [0.0236, 37.9062]
-KENYA_ZOOM = 6
+KENYA_ZOOM = 7
 DEFAULT_PORT = 8000
 
 # Dataset registry — only years with complete .tif files (not .gstmp)
@@ -242,6 +243,11 @@ def build_legend_data():
 def generate_html(datasets, legend_data):
     """Generate complete Leaflet.js HTML map page."""
 
+    # Build dataset years lookup for the time-series stepper
+    dataset_years_map = {}
+    for ds in datasets:
+        dataset_years_map[ds["key"]] = [yi["year"] for yi in ds["years"]]
+
     # Build sidebar dataset HTML
     sidebar_datasets = ""
     for ds in datasets:
@@ -269,6 +275,8 @@ def generate_html(datasets, legend_data):
 <title>KenyaMap — Kenya Land Cover Viewer</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
@@ -327,6 +335,62 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 }
 .clear-btn.show{display:block}
 .clear-btn:hover{background:#e74c3c}
+
+/* ── ToolBox (right sidebar) ───────────────────────────────────────── */
+#toolbox{
+  width:320px;flex-shrink:0;background:#1a1a2e;color:#e0e0e0;
+  overflow-y:auto;display:flex;flex-direction:column;z-index:1000;
+  border-left:1px solid #2a2a4a;
+}
+#toolbox h2{
+  font-size:1.1em;padding:14px 16px;background:#16213e;
+  color:#00d2ff;letter-spacing:.5px;flex-shrink:0;
+}
+.tool-section{border-bottom:1px solid #2a2a4a}
+.tool-section-header{
+  padding:10px 16px;cursor:pointer;display:flex;
+  align-items:center;gap:6px;font-size:.9em;transition:background .2s;
+}
+.tool-section-header:hover{background:#2a2a4a}
+.tool-section-header .arrow{
+  display:inline-block;width:14px;font-size:.7em;transition:transform .2s;
+}
+.tool-section-header.expanded .arrow{transform:rotate(90deg)}
+.tool-section-body{display:none;padding:12px 16px;background:#12122a}
+.tool-section-body.show{display:block}
+.tool-btn{
+  display:inline-block;padding:6px 14px;margin:4px 2px;
+  background:#0f3460;color:#00d2ff;border:1px solid #00d2ff;
+  border-radius:4px;cursor:pointer;font-size:.8em;transition:background .2s;
+}
+.tool-btn:hover{background:#1a5276}
+.tool-btn.active{background:#00d2ff;color:#1a1a2e}
+.tool-btn:disabled{opacity:.4;cursor:not-allowed}
+.stats-results{margin-top:10px;font-size:.8em}
+.stats-row{display:flex;align-items:center;padding:3px 0;gap:6px}
+.stats-swatch{
+  width:14px;height:14px;border-radius:2px;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.15);
+}
+.stats-bar{height:8px;background:#00d2ff;border-radius:2px;transition:width .3s}
+.geojson-textarea{
+  width:100%;height:120px;background:#0a0a1a;color:#00d2ff;
+  border:1px solid #2a2a4a;border-radius:4px;font-family:monospace;
+  font-size:.75em;padding:8px;resize:vertical;margin-top:8px;
+}
+.year-stepper{display:flex;align-items:center;gap:10px;margin-top:8px}
+.year-stepper .year-display{
+  flex:1;text-align:center;font-size:1.2em;color:#00d2ff;font-weight:600;
+}
+.step-btn{
+  width:36px;height:36px;background:#0f3460;color:#00d2ff;
+  border:1px solid #00d2ff;border-radius:50%;cursor:pointer;
+  font-size:1.1em;display:flex;align-items:center;justify-content:center;
+}
+.step-btn:hover{background:#1a5276}
+.step-btn:disabled{opacity:.3;cursor:not-allowed}
+.dataset-indicator{font-size:.8em;color:#888;margin-top:6px;text-align:center}
+.no-layer-msg{color:#666;font-size:.8em;font-style:italic}
 
 /* ── Map ────────────────────────────────────────────────────────────── */
 #map{flex:1;z-index:1}
@@ -416,6 +480,63 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="loading-overlay" id="loading">Loading tiles&hellip;</div>
 </div>
 
+<!-- ── ToolBox (right sidebar) ─────────────────────────────────────── -->
+<div id="toolbox">
+  <h2>ToolBox</h2>
+
+  <!-- Tool 1: Area Statistics -->
+  <div class="tool-section">
+    <div class="tool-section-header" onclick="toggleToolSection(this)">
+      <span class="arrow">&#9656;</span> Area Statistics
+    </div>
+    <div class="tool-section-body">
+      <div id="stats-no-layer" class="no-layer-msg">Select a layer first</div>
+      <div id="stats-controls" style="display:none">
+        <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw()">Draw Rectangle</button>
+        <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
+        <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">
+          Computing statistics...
+        </div>
+        <div id="stats-results" class="stats-results"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tool 2: Time-series Stepper -->
+  <div class="tool-section">
+    <div class="tool-section-header" onclick="toggleToolSection(this)">
+      <span class="arrow">&#9656;</span> Time-series Step
+    </div>
+    <div class="tool-section-body">
+      <div id="stepper-no-layer" class="no-layer-msg">Select a dataset layer first</div>
+      <div id="stepper-controls" style="display:none">
+        <div class="dataset-indicator" id="stepper-dataset-name"></div>
+        <div class="year-stepper">
+          <button class="step-btn" id="stepper-back" onclick="stepYear(-1)">&#9664;</button>
+          <div class="year-display" id="stepper-year">----</div>
+          <button class="step-btn" id="stepper-fwd" onclick="stepYear(1)">&#9654;</button>
+        </div>
+        <div class="dataset-indicator" id="stepper-range"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tool 3: GeoJSON Export -->
+  <div class="tool-section">
+    <div class="tool-section-header" onclick="toggleToolSection(this)">
+      <span class="arrow">&#9656;</span> GeoJSON Export
+    </div>
+    <div class="tool-section-body">
+      <button class="tool-btn" id="geojson-point-btn" onclick="startGeoJSONDraw('point')">Draw Point</button>
+      <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
+      <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
+      <textarea class="geojson-textarea" id="geojson-output" readonly
+                placeholder="Draw a shape to see GeoJSON here..."></textarea>
+      <button class="tool-btn" id="geojson-copy-btn" onclick="copyGeoJSON()" style="display:none">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /container -->
 
 <script>
@@ -423,6 +544,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // Configuration (injected by Python)
 // =====================================================================
 var LEGEND_DATA = __LEGEND_DATA__;
+var DATASET_YEARS = __DATASET_YEARS__;
 
 // =====================================================================
 // Map Initialization
@@ -526,6 +648,9 @@ function applyLayer(datasetKey, year, layerId, tileUrl){
     updateLegend(datasetKey);
     updateSidebarHighlight(layerId);
     document.getElementById('clear-btn').classList.add('show');
+    updateStepperState();
+    updateStatsVisibility();
+    prefetchAdjacentYears();
 }
 
 function clearActiveLayer(){
@@ -534,6 +659,8 @@ function clearActiveLayer(){
     updateLegend(null);
     updateSidebarHighlight(null);
     document.getElementById('clear-btn').classList.remove('show');
+    updateStepperState();
+    updateStatsVisibility();
 }
 
 // =====================================================================
@@ -592,6 +719,7 @@ function setOpacity(val){
 // Click / Pixel Inspector
 // =====================================================================
 map.on('click', function(e){
+    if(activeDrawMode) return;
     if(!activeOverlay) return;
     var lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
     fetch('/api/query?lat='+lat+'&lng='+lng+'&layer_id='+encodeURIComponent(activeOverlay.layerId))
@@ -613,6 +741,241 @@ map.on('click', function(e){
         .catch(function(){});
 });
 
+// =====================================================================
+// ToolBox — Base Setup
+// =====================================================================
+var drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+var activeDrawMode = null;
+
+function toggleToolSection(el){
+    el.classList.toggle('expanded');
+    el.nextElementSibling.classList.toggle('show');
+}
+
+// =====================================================================
+// ToolBox — GeoJSON Export
+// =====================================================================
+var geojsonLayer = null;
+
+function startGeoJSONDraw(type){
+    clearGeoJSON();
+    if(type==='point'){
+        activeDrawMode='geojson-point';
+        new L.Draw.Marker(map,{}).enable();
+        document.getElementById('geojson-point-btn').classList.add('active');
+    } else {
+        activeDrawMode='geojson-rect';
+        new L.Draw.Rectangle(map,{
+            shapeOptions:{color:'#ff6b6b',weight:2,fillOpacity:.1}
+        }).enable();
+        document.getElementById('geojson-rect-btn').classList.add('active');
+    }
+}
+function handleGeoJSONDrawn(e){
+    geojsonLayer = e.layer;
+    drawnItems.addLayer(geojsonLayer);
+    document.getElementById('geojson-point-btn').classList.remove('active');
+    document.getElementById('geojson-rect-btn').classList.remove('active');
+    document.getElementById('geojson-clear-btn').style.display='inline-block';
+    document.getElementById('geojson-copy-btn').style.display='inline-block';
+
+    var geojson;
+    if(e.layerType==='marker'){
+        var ll=e.layer.getLatLng();
+        geojson={type:'Point',coordinates:[parseFloat(ll.lng.toFixed(6)),parseFloat(ll.lat.toFixed(6))]};
+    } else {
+        var b=e.layer.getBounds();
+        geojson={type:'Polygon',coordinates:[[
+            [parseFloat(b.getWest().toFixed(6)),parseFloat(b.getSouth().toFixed(6))],
+            [parseFloat(b.getEast().toFixed(6)),parseFloat(b.getSouth().toFixed(6))],
+            [parseFloat(b.getEast().toFixed(6)),parseFloat(b.getNorth().toFixed(6))],
+            [parseFloat(b.getWest().toFixed(6)),parseFloat(b.getNorth().toFixed(6))],
+            [parseFloat(b.getWest().toFixed(6)),parseFloat(b.getSouth().toFixed(6))]
+        ]]};
+    }
+    document.getElementById('geojson-output').value=JSON.stringify(geojson,null,2);
+}
+function clearGeoJSON(){
+    if(geojsonLayer){drawnItems.removeLayer(geojsonLayer);geojsonLayer=null}
+    document.getElementById('geojson-output').value='';
+    document.getElementById('geojson-clear-btn').style.display='none';
+    document.getElementById('geojson-copy-btn').style.display='none';
+    document.getElementById('geojson-point-btn').classList.remove('active');
+    document.getElementById('geojson-rect-btn').classList.remove('active');
+}
+function copyGeoJSON(){
+    var ta=document.getElementById('geojson-output');
+    navigator.clipboard.writeText(ta.value).then(function(){
+        var btn=document.getElementById('geojson-copy-btn');
+        btn.textContent='Copied!';
+        setTimeout(function(){btn.textContent='Copy to Clipboard'},1500);
+    });
+}
+
+// =====================================================================
+// ToolBox — Time-series Stepper
+// =====================================================================
+function updateStepperState(){
+    var noLayer=document.getElementById('stepper-no-layer');
+    var controls=document.getElementById('stepper-controls');
+    if(!activeOverlay || activeOverlay.datasetKey==='similarity'){
+        noLayer.style.display='block';
+        noLayer.textContent=activeOverlay?'Similarity layer has no year series':'Select a dataset layer first';
+        controls.style.display='none';
+        return;
+    }
+    var dsKey=activeOverlay.datasetKey;
+    var years=DATASET_YEARS[dsKey];
+    if(!years||years.length<2){
+        noLayer.style.display='block';
+        noLayer.textContent='Only one year available for this dataset';
+        controls.style.display='none';
+        return;
+    }
+    noLayer.style.display='none';
+    controls.style.display='block';
+    document.getElementById('stepper-dataset-name').textContent=dsKey.replace(/_/g,' ');
+    document.getElementById('stepper-year').textContent=activeOverlay.year;
+    var idx=years.indexOf(activeOverlay.year);
+    document.getElementById('stepper-fwd').disabled=(idx<=0);
+    document.getElementById('stepper-back').disabled=(idx>=years.length-1);
+    document.getElementById('stepper-range').textContent=years[years.length-1]+' \u2013 '+years[0];
+}
+function stepYear(direction){
+    if(!activeOverlay||activeOverlay.datasetKey==='similarity') return;
+    var years=DATASET_YEARS[activeOverlay.datasetKey];
+    if(!years) return;
+    var idx=years.indexOf(activeOverlay.year);
+    var newIdx=idx-direction;
+    if(newIdx<0||newIdx>=years.length) return;
+    selectLayer(activeOverlay.datasetKey,years[newIdx]);
+}
+function prefetchAdjacentYears(){
+    if(!activeOverlay||activeOverlay.datasetKey==='similarity') return;
+    var years=DATASET_YEARS[activeOverlay.datasetKey];
+    if(!years) return;
+    var idx=years.indexOf(activeOverlay.year);
+    var toFetch=[];
+    if(idx>0) toFetch.push(years[idx-1]);
+    if(idx<years.length-1) toFetch.push(years[idx+1]);
+    toFetch.forEach(function(y){
+        var lid=activeOverlay.datasetKey+'_'+y;
+        if(!tileUrlCache[lid]){
+            fetch('/api/activate?layer_id='+encodeURIComponent(lid))
+                .then(function(r){return r.json()})
+                .then(function(d){if(d.tile_url) tileUrlCache[lid]=d.tile_url});
+        }
+    });
+}
+
+// =====================================================================
+// ToolBox — Area Statistics
+// =====================================================================
+var statsRect = null;
+
+function updateStatsVisibility(){
+    var noLayer=document.getElementById('stats-no-layer');
+    var controls=document.getElementById('stats-controls');
+    if(activeOverlay){
+        noLayer.style.display='none';
+        controls.style.display='block';
+    } else {
+        noLayer.style.display='block';
+        controls.style.display='none';
+        clearStatsRect();
+    }
+    document.getElementById('stats-results').innerHTML='';
+}
+function startStatsDraw(){
+    if(!activeOverlay) return;
+    clearStatsRect();
+    activeDrawMode='stats';
+    new L.Draw.Rectangle(map,{
+        shapeOptions:{color:'#00d2ff',weight:2,fillOpacity:.15}
+    }).enable();
+    document.getElementById('stats-draw-btn').classList.add('active');
+}
+function clearStatsRect(){
+    if(statsRect){drawnItems.removeLayer(statsRect);statsRect=null}
+    document.getElementById('stats-results').innerHTML='';
+    document.getElementById('stats-clear-btn').style.display='none';
+    document.getElementById('stats-draw-btn').classList.remove('active');
+}
+function fetchAreaStats(bounds){
+    if(!activeOverlay) return;
+    var el=document.getElementById('stats-results');
+    document.getElementById('stats-loading').style.display='block';
+    el.innerHTML='';
+    var params='layer_id='+encodeURIComponent(activeOverlay.layerId)
+        +'&south='+bounds.getSouth()+'&north='+bounds.getNorth()
+        +'&west='+bounds.getWest()+'&east='+bounds.getEast();
+    fetch('/api/stats?'+params)
+        .then(function(r){return r.json()})
+        .then(function(d){
+            document.getElementById('stats-loading').style.display='none';
+            if(d.error){el.innerHTML='<div style="color:#e74c3c">'+d.error+'</div>';return}
+            renderStatsResults(d);
+        })
+        .catch(function(){
+            document.getElementById('stats-loading').style.display='none';
+            el.innerHTML='<div style="color:#e74c3c">Request failed</div>';
+        });
+}
+function fmtArea(km2){
+    if(km2>=1) return km2.toLocaleString(undefined,{maximumFractionDigits:2})+' km\u00b2';
+    return (km2*100).toFixed(2)+' ha';
+}
+function renderStatsResults(data){
+    var el=document.getElementById('stats-results');
+    var html='<div style="margin-bottom:6px;color:#aaa;font-size:.85em">Total area: '
+        +fmtArea(data.total_area_km2)+'</div>';
+    if(data.type==='categorical'){
+        for(var i=0;i<data.classes.length;i++){
+            var c=data.classes[i];
+            html+='<div class="stats-row">'
+                +'<div class="stats-swatch" style="background:'+c.color+'"></div>'
+                +'<span style="flex:1">'+c.name+'</span>'
+                +'<span style="text-align:right;white-space:nowrap">'+fmtArea(c.area_km2)+' ('+c.pct.toFixed(1)+'%)</span>'
+                +'</div>'
+                +'<div style="background:#2a2a4a;border-radius:2px;height:8px;margin:2px 0 4px">'
+                +'<div class="stats-bar" style="width:'+c.pct+'%"></div></div>';
+        }
+    } else {
+        html+='<div style="color:#aaa;font-size:.8em;margin-bottom:4px">'
+            +'Range: '+data.min_val+' \u2013 '+data.max_val
+            +' (mean: '+data.mean_val.toFixed(1)+')</div>';
+        for(var i=0;i<data.buckets.length;i++){
+            var b=data.buckets[i];
+            html+='<div class="stats-row">'
+                +'<div class="stats-swatch" style="background:'+b.color+'"></div>'
+                +'<span style="flex:1">'+b.label+'</span>'
+                +'<span style="text-align:right;white-space:nowrap">'+fmtArea(b.area_km2)+' ('+b.pct.toFixed(1)+'%)</span>'
+                +'</div>'
+                +'<div style="background:#2a2a4a;border-radius:2px;height:8px;margin:2px 0 4px">'
+                +'<div class="stats-bar" style="width:'+b.pct+'%"></div></div>';
+        }
+    }
+    el.innerHTML=html;
+}
+
+// =====================================================================
+// draw:created event — routes to correct tool handler
+// =====================================================================
+map.on('draw:created', function(e){
+    if(activeDrawMode==='stats'){
+        statsRect=e.layer;
+        drawnItems.addLayer(statsRect);
+        document.getElementById('stats-draw-btn').classList.remove('active');
+        document.getElementById('stats-clear-btn').style.display='inline-block';
+        fetchAreaStats(statsRect.getBounds());
+        activeDrawMode=null;
+    } else if(activeDrawMode==='geojson-point'||activeDrawMode==='geojson-rect'){
+        handleGeoJSONDrawn(e);
+        activeDrawMode=null;
+    }
+});
+
 // Make sure map fills its container
 setTimeout(function(){map.invalidateSize()}, 200);
 </script>
@@ -624,6 +987,7 @@ setTimeout(function(){map.invalidateSize()}, 200);
     html = html.replace("__LEGEND_DATA__", json.dumps(legend_data))
     html = html.replace("__KENYA_CENTER__", json.dumps(KENYA_CENTER))
     html = html.replace("__KENYA_ZOOM__", str(KENYA_ZOOM))
+    html = html.replace("__DATASET_YEARS__", json.dumps(dataset_years_map))
 
     return html
 
@@ -641,6 +1005,8 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_activate(parsed)
         elif parsed.path == "/api/query":
             self._handle_query(parsed)
+        elif parsed.path == "/api/stats":
+            self._handle_stats(parsed)
         else:
             super().do_GET()
 
@@ -754,6 +1120,155 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
                 result["color"] = "#000000"
 
         self._send_json(result)
+
+    # ── /api/stats ─────────────────────────────────────────────────────
+    def _handle_stats(self, parsed):
+        """Compute class distribution within a bounding box."""
+        qs = parse_qs(parsed.query)
+        try:
+            layer_id = qs["layer_id"][0]
+            south = float(qs["south"][0])
+            north = float(qs["north"][0])
+            west = float(qs["west"][0])
+            east = float(qs["east"][0])
+        except (KeyError, ValueError, IndexError):
+            self._send_json({"error": "Missing layer_id, south, north, west, or east"}, 400)
+            return
+
+        file_path = _file_registry.get(layer_id)
+        if not file_path:
+            self._send_json({"error": f"Unknown layer: {layer_id}"}, 404)
+            return
+
+        try:
+            with rasterio.open(file_path) as src:
+                row_n, col_w = rasterio.transform.rowcol(src.transform, west, north)
+                row_s, col_e = rasterio.transform.rowcol(src.transform, east, south)
+
+                # Ensure correct ordering
+                r0, r1 = min(row_n, row_s), max(row_n, row_s)
+                c0, c1 = min(col_w, col_e), max(col_w, col_e)
+
+                # Clamp to raster bounds
+                r0 = max(0, min(r0, src.height - 1))
+                r1 = max(0, min(r1, src.height - 1))
+                c0 = max(0, min(c0, src.width - 1))
+                c1 = max(0, min(c1, src.width - 1))
+
+                win_h = r1 - r0 + 1
+                win_w = c1 - c0 + 1
+
+                MAX_PIXELS = 100_000_000
+                if win_h * win_w > MAX_PIXELS:
+                    self._send_json({
+                        "error": f"Selection too large ({win_h * win_w:,} pixels). "
+                                 f"Max {MAX_PIXELS:,}. Zoom in or draw a smaller area."
+                    }, 400)
+                    return
+
+                window = rasterio.windows.Window(c0, r0, win_w, win_h)
+                data = src.read(1, window=window)
+
+                # Compute pixel area in km² from transform + center latitude
+                import math
+                center_lat = (south + north) / 2
+                px_deg_x = abs(src.transform.a)
+                px_deg_y = abs(src.transform.e)
+                m_per_deg = 111_320 * math.cos(math.radians(center_lat))
+                pixel_area_km2 = (px_deg_x * m_per_deg) * (px_deg_y * 111_320) / 1e6
+
+        except Exception as e:
+            self._send_json({"error": f"Raster read error: {e}"}, 500)
+            return
+
+        if layer_id == "similarity":
+            result = self._stats_continuous(data, pixel_area_km2)
+        else:
+            dataset_key = resolve_dataset_key(layer_id)
+            result = self._stats_categorical(data, dataset_key, pixel_area_km2)
+
+        self._send_json(result)
+
+    def _stats_categorical(self, data, dataset_key, pixel_area_km2):
+        """Compute class distribution for categorical LULC data."""
+        ds = _label_mappings.get(dataset_key, {})
+        unique, counts = np.unique(data, return_counts=True)
+        total = int(counts.sum())
+
+        classes = []
+        for val, count in sorted(zip(unique, counts), key=lambda x: -x[1]):
+            val, count = int(val), int(count)
+
+            if "simplified_groups" in ds:
+                sg = ds["simplified_groups"]
+                gidx = sg["group_mapping"].get(str(val))
+                if gidx is not None:
+                    name = sg["group_names"][gidx]
+                    color = sg["group_colors"][gidx]
+                else:
+                    name, color = f"Unknown ({val})", "#000000"
+            elif "label_mapping" in ds:
+                idx = ds["label_mapping"].get(str(val))
+                if idx is not None and idx < len(ds.get("class_names", [])):
+                    name = ds["class_names"][idx]
+                    color = ds["palette"][idx] if idx < len(ds.get("palette", [])) else "#000000"
+                else:
+                    name, color = f"Unknown ({val})", "#000000"
+            else:
+                name, color = str(val), "#000000"
+
+            if name == "No Data":
+                total -= count
+                continue
+            classes.append({"value": val, "name": name, "color": color, "count": count})
+
+        # Merge duplicate group names (simplified_groups maps multiple pixel values to one group)
+        merged = {}
+        for c in classes:
+            if c["name"] in merged:
+                merged[c["name"]]["count"] += c["count"]
+            else:
+                merged[c["name"]] = dict(c)
+        classes = sorted(merged.values(), key=lambda x: -x["count"])
+
+        for c in classes:
+            c["pct"] = (c["count"] / total * 100) if total > 0 else 0
+            c["area_km2"] = round(c["count"] * pixel_area_km2, 2)
+
+        total_area_km2 = round(total * pixel_area_km2, 2)
+        return {"type": "categorical", "total_pixels": total,
+                "total_area_km2": total_area_km2, "classes": classes}
+
+    def _stats_continuous(self, data, pixel_area_km2):
+        """Compute value distribution for continuous (similarity) data."""
+        valid = data[data > 0]
+        total = int(valid.size)
+        if total == 0:
+            return {"type": "continuous", "total_pixels": 0, "total_area_km2": 0,
+                    "buckets": [], "min_val": 0, "max_val": 0, "mean_val": 0}
+
+        bucket_defs = [
+            (0, 500, "Very similar (minimal change)", "#00ff00"),
+            (500, 1500, "Similar (low change)", "#7fff00"),
+            (1500, 3000, "Moderate change", "#ffff00"),
+            (3000, 5000, "Significant change", "#ff7f00"),
+            (5000, 10000, "Very high change", "#ff0000"),
+        ]
+        buckets = []
+        for lo, hi, label, color in bucket_defs:
+            count = int(np.sum((valid >= lo) & (valid < hi)))
+            if count > 0:
+                buckets.append({"label": label, "color": color, "count": count,
+                                "pct": count / total * 100,
+                                "area_km2": round(count * pixel_area_km2, 2)})
+
+        total_area_km2 = round(total * pixel_area_km2, 2)
+        return {
+            "type": "continuous", "total_pixels": total,
+            "total_area_km2": total_area_km2,
+            "min_val": int(valid.min()), "max_val": int(valid.max()),
+            "mean_val": float(valid.mean()), "buckets": buckets,
+        }
 
     def log_message(self, fmt, *args):
         # Only log API requests, suppress static file noise
