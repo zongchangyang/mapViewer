@@ -277,6 +277,7 @@ def generate_html(datasets, legend_data):
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
@@ -484,7 +485,25 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <div id="toolbox">
   <h2>ToolBox</h2>
 
-  <!-- Tool 1: Area Statistics -->
+  <!-- Tool 1: GeoJSON Export -->
+  <div class="tool-section">
+    <div class="tool-section-header" onclick="toggleToolSection(this)">
+      <span class="arrow">&#9656;</span> GeoJSON Import/Export
+    </div>
+    <div class="tool-section-body">
+      <button class="tool-btn" id="geojson-point-btn" onclick="startGeoJSONDraw('point')">Draw Point</button>
+      <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
+      <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
+      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleFileUpload(this)">
+      <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
+      <textarea class="geojson-textarea" id="geojson-output" readonly
+                placeholder="Draw a shape to see GeoJSON here..."></textarea>
+      <button class="tool-btn" id="geojson-copy-btn" onclick="copyGeoJSON()" style="display:none">Copy to Clipboard</button>
+      <button class="tool-btn" id="geojson-save-btn" onclick="saveGeoJSON()" style="display:none">Save as JSON</button>
+    </div>
+  </div>
+
+  <!-- Tool 2: Area Statistics -->
   <div class="tool-section">
     <div class="tool-section-header" onclick="toggleToolSection(this)">
       <span class="arrow">&#9656;</span> Area Statistics
@@ -502,7 +521,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     </div>
   </div>
 
-  <!-- Tool 2: Time-series Stepper -->
+  <!-- Tool 3: Time-series Stepper -->
   <div class="tool-section">
     <div class="tool-section-header" onclick="toggleToolSection(this)">
       <span class="arrow">&#9656;</span> Time-series Step
@@ -518,21 +537,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         </div>
         <div class="dataset-indicator" id="stepper-range"></div>
       </div>
-    </div>
-  </div>
-
-  <!-- Tool 3: GeoJSON Export -->
-  <div class="tool-section">
-    <div class="tool-section-header" onclick="toggleToolSection(this)">
-      <span class="arrow">&#9656;</span> GeoJSON Export
-    </div>
-    <div class="tool-section-body">
-      <button class="tool-btn" id="geojson-point-btn" onclick="startGeoJSONDraw('point')">Draw Point</button>
-      <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
-      <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
-      <textarea class="geojson-textarea" id="geojson-output" readonly
-                placeholder="Draw a shape to see GeoJSON here..."></textarea>
-      <button class="tool-btn" id="geojson-copy-btn" onclick="copyGeoJSON()" style="display:none">Copy to Clipboard</button>
     </div>
   </div>
 </div>
@@ -779,6 +783,7 @@ function handleGeoJSONDrawn(e){
     document.getElementById('geojson-rect-btn').classList.remove('active');
     document.getElementById('geojson-clear-btn').style.display='inline-block';
     document.getElementById('geojson-copy-btn').style.display='inline-block';
+    document.getElementById('geojson-save-btn').style.display='inline-block';
 
     var geojson;
     if(e.layerType==='marker'){
@@ -801,6 +806,7 @@ function clearGeoJSON(){
     document.getElementById('geojson-output').value='';
     document.getElementById('geojson-clear-btn').style.display='none';
     document.getElementById('geojson-copy-btn').style.display='none';
+    document.getElementById('geojson-save-btn').style.display='none';
     document.getElementById('geojson-point-btn').classList.remove('active');
     document.getElementById('geojson-rect-btn').classList.remove('active');
 }
@@ -811,6 +817,53 @@ function copyGeoJSON(){
         btn.textContent='Copied!';
         setTimeout(function(){btn.textContent='Copy to Clipboard'},1500);
     });
+}
+function saveGeoJSON(){
+    var text=document.getElementById('geojson-output').value;
+    if(!text) return;
+    var blob=new Blob([text],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='geometry.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+function handleFileUpload(input){
+    if(!input.files||!input.files[0]) return;
+    var file=input.files[0];
+    var name=file.name.toLowerCase();
+    if(name.endsWith('.zip')||name.endsWith('.shp')){
+        var reader=new FileReader();
+        reader.onload=function(e){
+            shp(e.target.result).then(function(geojson){
+                displayGeoJSON(geojson);
+            }).catch(function(err){alert('Failed to parse shapefile: '+err)});
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        var reader=new FileReader();
+        reader.onload=function(e){
+            try{
+                var geojson=JSON.parse(e.target.result);
+                displayGeoJSON(geojson);
+            }catch(err){alert('Failed to parse GeoJSON: '+err)}
+        };
+        reader.readAsText(file);
+    }
+    input.value='';
+}
+function displayGeoJSON(geojson){
+    clearGeoJSON();
+    geojsonLayer=L.geoJSON(geojson,{
+        style:function(){return{color:'#ff6b6b',weight:2,fillOpacity:.1}},
+        pointToLayer:function(f,ll){return L.marker(ll)}
+    }).addTo(map);
+    drawnItems.addLayer(geojsonLayer);
+    map.fitBounds(geojsonLayer.getBounds());
+    document.getElementById('geojson-output').value=JSON.stringify(geojson,null,2);
+    document.getElementById('geojson-clear-btn').style.display='inline-block';
+    document.getElementById('geojson-copy-btn').style.display='inline-block';
+    document.getElementById('geojson-save-btn').style.display='inline-block';
 }
 
 // =====================================================================
