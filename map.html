@@ -110,18 +110,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   border:1px solid #2a2a4a;border-radius:4px;font-family:monospace;
   font-size:.75em;padding:8px;resize:vertical;margin-top:8px;
 }
-.year-stepper{display:flex;align-items:center;gap:10px;margin-top:8px}
-.year-stepper .year-display{
-  flex:1;text-align:center;font-size:1.2em;color:#00d2ff;font-weight:600;
-}
-.step-btn{
-  width:36px;height:36px;background:#0f3460;color:#00d2ff;
-  border:1px solid #00d2ff;border-radius:50%;cursor:pointer;
-  font-size:1.1em;display:flex;align-items:center;justify-content:center;
-}
-.step-btn:hover{background:#1a5276}
-.step-btn:disabled{opacity:.3;cursor:not-allowed}
-.dataset-indicator{font-size:.8em;color:#888;margin-top:6px;text-align:center}
 .no-layer-msg{color:#666;font-size:.8em;font-style:italic}
 
 /* ── Map ────────────────────────────────────────────────────────────── */
@@ -317,25 +305,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       </div>
     </div>
   </div>
-
-  <!-- Tool 3: Time-series Stepper -->
-  <div class="tool-section">
-    <div class="tool-section-header" onclick="toggleToolSection(this)">
-      <span class="arrow">&#9656;</span> Time-series Step
-    </div>
-    <div class="tool-section-body">
-      <div id="stepper-no-layer" class="no-layer-msg">Select a dataset layer first</div>
-      <div id="stepper-controls" style="display:none">
-        <div class="dataset-indicator" id="stepper-dataset-name"></div>
-        <div class="year-stepper">
-          <button class="step-btn" id="stepper-back" onclick="stepYear(-1)">&#9664;</button>
-          <div class="year-display" id="stepper-year">----</div>
-          <button class="step-btn" id="stepper-fwd" onclick="stepYear(1)">&#9654;</button>
-        </div>
-        <div class="dataset-indicator" id="stepper-range"></div>
-      </div>
-    </div>
-  </div>
 </div>
 
 </div><!-- /container -->
@@ -345,7 +314,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // Configuration (injected by Python)
 // =====================================================================
 var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "sunstone_lulc_9classes Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
-var DATASET_YEARS = {"sunstone_kenya_lulc_9C": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "dynamicworld": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "esri_lulc": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "worldcover": [2021, 2020], "glad_glclu": [2020], "glc_fcs30d": [2021, 2020, 2019]};
 
 // =====================================================================
 // Map Initialization
@@ -449,9 +417,7 @@ function applyLayer(datasetKey, year, layerId, tileUrl){
     updateLegend(datasetKey);
     updateSidebarHighlight(layerId);
     document.getElementById('clear-btn').classList.add('show');
-    updateStepperState();
     updateStatsVisibility();
-    prefetchAdjacentYears();
 }
 
 function clearActiveLayer(){
@@ -460,7 +426,6 @@ function clearActiveLayer(){
     updateLegend(null);
     updateSidebarHighlight(null);
     document.getElementById('clear-btn').classList.remove('show');
-    updateStepperState();
     updateStatsVisibility();
 }
 
@@ -674,62 +639,6 @@ function displayGeoJSON(geojson){
     document.getElementById('geojson-clear-btn').style.display='inline-block';
     document.getElementById('geojson-copy-btn').style.display='inline-block';
     document.getElementById('geojson-save-btn').style.display='inline-block';
-}
-
-// =====================================================================
-// ToolBox — Time-series Stepper
-// =====================================================================
-function updateStepperState(){
-    var noLayer=document.getElementById('stepper-no-layer');
-    var controls=document.getElementById('stepper-controls');
-    if(!activeOverlay || activeOverlay.datasetKey==='similarity'){
-        noLayer.style.display='block';
-        noLayer.textContent=activeOverlay?'Similarity layer has no year series':'Select a dataset layer first';
-        controls.style.display='none';
-        return;
-    }
-    var dsKey=activeOverlay.datasetKey;
-    var years=DATASET_YEARS[dsKey];
-    if(!years||years.length<2){
-        noLayer.style.display='block';
-        noLayer.textContent='Only one year available for this dataset';
-        controls.style.display='none';
-        return;
-    }
-    noLayer.style.display='none';
-    controls.style.display='block';
-    document.getElementById('stepper-dataset-name').textContent=dsKey.replace(/_/g,' ');
-    document.getElementById('stepper-year').textContent=activeOverlay.year;
-    var idx=years.indexOf(activeOverlay.year);
-    document.getElementById('stepper-fwd').disabled=(idx<=0);
-    document.getElementById('stepper-back').disabled=(idx>=years.length-1);
-    document.getElementById('stepper-range').textContent=years[years.length-1]+' \u2013 '+years[0];
-}
-function stepYear(direction){
-    if(!activeOverlay||activeOverlay.datasetKey==='similarity') return;
-    var years=DATASET_YEARS[activeOverlay.datasetKey];
-    if(!years) return;
-    var idx=years.indexOf(activeOverlay.year);
-    var newIdx=idx-direction;
-    if(newIdx<0||newIdx>=years.length) return;
-    selectLayer(activeOverlay.datasetKey,years[newIdx]);
-}
-function prefetchAdjacentYears(){
-    if(!activeOverlay||activeOverlay.datasetKey==='similarity') return;
-    var years=DATASET_YEARS[activeOverlay.datasetKey];
-    if(!years) return;
-    var idx=years.indexOf(activeOverlay.year);
-    var toFetch=[];
-    if(idx>0) toFetch.push(years[idx-1]);
-    if(idx<years.length-1) toFetch.push(years[idx+1]);
-    toFetch.forEach(function(y){
-        var lid=activeOverlay.datasetKey+'_'+y;
-        if(!tileUrlCache[lid]){
-            fetch('/api/activate?layer_id='+encodeURIComponent(lid))
-                .then(function(r){return r.json()})
-                .then(function(d){if(d.tile_url) tileUrlCache[lid]=d.tile_url});
-        }
-    });
 }
 
 // =====================================================================

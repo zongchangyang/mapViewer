@@ -243,11 +243,6 @@ def build_legend_data():
 def generate_html(datasets, legend_data):
     """Generate complete Leaflet.js HTML map page."""
 
-    # Build dataset years lookup for the time-series stepper
-    dataset_years_map = {}
-    for ds in datasets:
-        dataset_years_map[ds["key"]] = [yi["year"] for yi in ds["years"]]
-
     # Build sidebar dataset HTML
     sidebar_datasets = ""
     for ds in datasets:
@@ -379,18 +374,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   border:1px solid #2a2a4a;border-radius:4px;font-family:monospace;
   font-size:.75em;padding:8px;resize:vertical;margin-top:8px;
 }
-.year-stepper{display:flex;align-items:center;gap:10px;margin-top:8px}
-.year-stepper .year-display{
-  flex:1;text-align:center;font-size:1.2em;color:#00d2ff;font-weight:600;
-}
-.step-btn{
-  width:36px;height:36px;background:#0f3460;color:#00d2ff;
-  border:1px solid #00d2ff;border-radius:50%;cursor:pointer;
-  font-size:1.1em;display:flex;align-items:center;justify-content:center;
-}
-.step-btn:hover{background:#1a5276}
-.step-btn:disabled{opacity:.3;cursor:not-allowed}
-.dataset-indicator{font-size:.8em;color:#888;margin-top:6px;text-align:center}
 .no-layer-msg{color:#666;font-size:.8em;font-style:italic}
 
 /* ── Map ────────────────────────────────────────────────────────────── */
@@ -524,25 +507,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       </div>
     </div>
   </div>
-
-  <!-- Tool 3: Time-series Stepper -->
-  <div class="tool-section">
-    <div class="tool-section-header" onclick="toggleToolSection(this)">
-      <span class="arrow">&#9656;</span> Time-series Step
-    </div>
-    <div class="tool-section-body">
-      <div id="stepper-no-layer" class="no-layer-msg">Select a dataset layer first</div>
-      <div id="stepper-controls" style="display:none">
-        <div class="dataset-indicator" id="stepper-dataset-name"></div>
-        <div class="year-stepper">
-          <button class="step-btn" id="stepper-back" onclick="stepYear(-1)">&#9664;</button>
-          <div class="year-display" id="stepper-year">----</div>
-          <button class="step-btn" id="stepper-fwd" onclick="stepYear(1)">&#9654;</button>
-        </div>
-        <div class="dataset-indicator" id="stepper-range"></div>
-      </div>
-    </div>
-  </div>
 </div>
 
 </div><!-- /container -->
@@ -552,7 +516,6 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // Configuration (injected by Python)
 // =====================================================================
 var LEGEND_DATA = __LEGEND_DATA__;
-var DATASET_YEARS = __DATASET_YEARS__;
 
 // =====================================================================
 // Map Initialization
@@ -656,9 +619,7 @@ function applyLayer(datasetKey, year, layerId, tileUrl){
     updateLegend(datasetKey);
     updateSidebarHighlight(layerId);
     document.getElementById('clear-btn').classList.add('show');
-    updateStepperState();
     updateStatsVisibility();
-    prefetchAdjacentYears();
 }
 
 function clearActiveLayer(){
@@ -667,7 +628,6 @@ function clearActiveLayer(){
     updateLegend(null);
     updateSidebarHighlight(null);
     document.getElementById('clear-btn').classList.remove('show');
-    updateStepperState();
     updateStatsVisibility();
 }
 
@@ -884,62 +844,6 @@ function displayGeoJSON(geojson){
 }
 
 // =====================================================================
-// ToolBox — Time-series Stepper
-// =====================================================================
-function updateStepperState(){
-    var noLayer=document.getElementById('stepper-no-layer');
-    var controls=document.getElementById('stepper-controls');
-    if(!activeOverlay || activeOverlay.datasetKey==='similarity'){
-        noLayer.style.display='block';
-        noLayer.textContent=activeOverlay?'Similarity layer has no year series':'Select a dataset layer first';
-        controls.style.display='none';
-        return;
-    }
-    var dsKey=activeOverlay.datasetKey;
-    var years=DATASET_YEARS[dsKey];
-    if(!years||years.length<2){
-        noLayer.style.display='block';
-        noLayer.textContent='Only one year available for this dataset';
-        controls.style.display='none';
-        return;
-    }
-    noLayer.style.display='none';
-    controls.style.display='block';
-    document.getElementById('stepper-dataset-name').textContent=dsKey.replace(/_/g,' ');
-    document.getElementById('stepper-year').textContent=activeOverlay.year;
-    var idx=years.indexOf(activeOverlay.year);
-    document.getElementById('stepper-fwd').disabled=(idx<=0);
-    document.getElementById('stepper-back').disabled=(idx>=years.length-1);
-    document.getElementById('stepper-range').textContent=years[years.length-1]+' \u2013 '+years[0];
-}
-function stepYear(direction){
-    if(!activeOverlay||activeOverlay.datasetKey==='similarity') return;
-    var years=DATASET_YEARS[activeOverlay.datasetKey];
-    if(!years) return;
-    var idx=years.indexOf(activeOverlay.year);
-    var newIdx=idx-direction;
-    if(newIdx<0||newIdx>=years.length) return;
-    selectLayer(activeOverlay.datasetKey,years[newIdx]);
-}
-function prefetchAdjacentYears(){
-    if(!activeOverlay||activeOverlay.datasetKey==='similarity') return;
-    var years=DATASET_YEARS[activeOverlay.datasetKey];
-    if(!years) return;
-    var idx=years.indexOf(activeOverlay.year);
-    var toFetch=[];
-    if(idx>0) toFetch.push(years[idx-1]);
-    if(idx<years.length-1) toFetch.push(years[idx+1]);
-    toFetch.forEach(function(y){
-        var lid=activeOverlay.datasetKey+'_'+y;
-        if(!tileUrlCache[lid]){
-            fetch('/api/activate?layer_id='+encodeURIComponent(lid))
-                .then(function(r){return r.json()})
-                .then(function(d){if(d.tile_url) tileUrlCache[lid]=d.tile_url});
-        }
-    });
-}
-
-// =====================================================================
 // ToolBox — Area Statistics
 // =====================================================================
 var statsRect = null;
@@ -1132,8 +1036,6 @@ setTimeout(function(){map.invalidateSize()}, 200);
     html = html.replace("__LEGEND_DATA__", json.dumps(legend_data))
     html = html.replace("__KENYA_CENTER__", json.dumps(KENYA_CENTER))
     html = html.replace("__KENYA_ZOOM__", str(KENYA_ZOOM))
-    html = html.replace("__DATASET_YEARS__", json.dumps(dataset_years_map))
-
     return html
 
 
