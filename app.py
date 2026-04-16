@@ -177,17 +177,21 @@ def get_tile_url(layer_id):
         return None
 
     if layer_id not in _tile_clients:
-        port = _next_tile_port
-        _next_tile_port += 1
-        print(f"  Starting tile server for {layer_id} on port {port}...")
-        client = TileClient(
-            _file_registry[layer_id],
-            port=port,
-            host="0.0.0.0",
-            client_host=_external_ip or "127.0.0.1",
-            client_port=port,
-            cors_all=True,
-        )
+        if _external_ip:
+            port = _next_tile_port
+            _next_tile_port += 1
+            print(f"  Starting tile server for {layer_id} on port {port}...")
+            client = TileClient(
+                _file_registry[layer_id],
+                port=port,
+                host="0.0.0.0",
+                client_host=_external_ip,
+                client_port=port,
+                cors_all=True,
+            )
+        else:
+            print(f"  Starting tile server for {layer_id}...")
+            client = TileClient(_file_registry[layer_id], cors_all=True)
         _tile_clients[layer_id] = client
 
     client = _tile_clients[layer_id]
@@ -1530,10 +1534,11 @@ def main():
     print(f"  Saved to {OUTPUT_HTML}")
 
     # Start HTTP server
-    print(f"\nStarting HTTP server on port {args.port}...")
-    server = ThreadedHTTPServer(("", args.port), MapHandler)
+    bind_addr = "0.0.0.0" if _external_ip else "127.0.0.1"
+    print(f"\nStarting HTTP server on {bind_addr}:{args.port}...")
+    server = ThreadedHTTPServer((bind_addr, args.port), MapHandler)
 
-    host = _external_ip or "0.0.0.0"
+    host = _external_ip or "localhost"
     url = f"http://{host}:{args.port}/{OUTPUT_HTML}"
     print(f"  Open in browser: {url}\n")
 
