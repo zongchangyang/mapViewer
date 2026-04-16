@@ -6,6 +6,8 @@ Supports multiple LULC datasets (2017-2025) and a similarity change detection la
 
 Usage:
     python app.py [--port PORT] [--no-browser]
+    python app.py --external-ip 34.xx.xx.xx --no-browser   # GCP VM deployment
+    python app.py --external-ip 34.xx.xx.xx --tile-port-start 9001 --no-browser
 """
 
 import json
@@ -30,8 +32,9 @@ DATA_DIR = Path("data")
 MAPPING_FILE = Path("dataset_label_mapping.json")
 OUTPUT_HTML = Path("map.html")
 KENYA_CENTER = [0.0236, 37.9062]
-KENYA_ZOOM = 7
+KENYA_ZOOM = 8
 DEFAULT_PORT = 8000
+DEFAULT_TILE_PORT_START = 8001
 
 # Dataset registry — only years with complete .tif files (not .gstmp)
 DATASET_REGISTRY = {
@@ -77,6 +80,8 @@ _file_registry = {}      # layer_id -> file_path
 _label_mappings = {}     # dataset_key -> mapping dict
 _tile_clients = {}       # layer_id -> TileClient (lazily created)
 _colormap_cache = {}     # dataset_key -> colormap dict
+_external_ip = None      # set via --external-ip for GCP deployment
+_next_tile_port = DEFAULT_TILE_PORT_START
 
 
 # =============================================================================
@@ -166,14 +171,28 @@ def resolve_dataset_key(layer_id):
 
 def get_tile_url(layer_id):
     """Lazily start a TileClient and return a colorized tile URL template."""
+    global _next_tile_port
+
     if layer_id not in _file_registry:
         return None
 
     if layer_id not in _tile_clients:
-        print(f"  Starting tile server for {layer_id}...")
-        _tile_clients[layer_id] = TileClient(_file_registry[layer_id], cors_all=True)
+        port = _next_tile_port
+        _next_tile_port += 1
+        print(f"  Starting tile server for {layer_id} on port {port}...")
+        client = TileClient(
+            _file_registry[layer_id],
+            port=port,
+            host="0.0.0.0",
+            client_host=_external_ip or "127.0.0.1",
+            client_port=port,
+            cors_all=True,
+        )
+        _tile_clients[layer_id] = client
 
     client = _tile_clients[layer_id]
+
+    use_client = _external_ip is not None
 
     if layer_id == "similarity":
         # Continuous green → yellow → red
@@ -182,6 +201,7 @@ def get_tile_url(layer_id):
             colormap='rdylgn_r',
             vmin=0,
             vmax=7200,
+            client=use_client,
         )
 
     # Categorical LULC — build colormap dict, append to URL
@@ -189,7 +209,7 @@ def get_tile_url(layer_id):
     cmap_dict = build_colormap_dict(dataset_key)
 
     # vmin=0, vmax=255 prevents auto-scaling on UInt8 data
-    base_url = client.get_tile_url(indexes=[1], vmin=0, vmax=255)
+    base_url = client.get_tile_url(indexes=[1], vmin=0, vmax=255, client=use_client)
     cmap_json = json.dumps(cmap_dict)
     return base_url + "&colormap=" + quote(cmap_json)
 
@@ -1465,12 +1485,19 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 # =============================================================================
 
 def main():
-    global _file_registry, _label_mappings
+    global _file_registry, _label_mappings, _external_ip, _next_tile_port
 
     parser = argparse.ArgumentParser(description="KenyaMap — Kenya Land Cover Viewer")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--external-ip", type=str, default=None,
+                        help="External IP for tile URLs (required for GCP deployment)")
+    parser.add_argument("--tile-port-start", type=int, default=DEFAULT_TILE_PORT_START,
+                        help="Starting port for tile servers (default: 8001)")
     args = parser.parse_args()
+
+    _external_ip = args.external_ip
+    _next_tile_port = args.tile_port_start
 
     print("KenyaMap — Starting up...")
 
@@ -1506,7 +1533,8 @@ def main():
     print(f"\nStarting HTTP server on port {args.port}...")
     server = ThreadedHTTPServer(("", args.port), MapHandler)
 
-    url = f"http://localhost:{args.port}/{OUTPUT_HTML}"
+    host = _external_ip or "0.0.0.0"
+    url = f"http://{host}:{args.port}/{OUTPUT_HTML}"
     print(f"  Open in browser: {url}\n")
 
     if not args.no_browser:

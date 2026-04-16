@@ -12,22 +12,38 @@ See `AGENTS.md` for full data specifications, dataset schemas, year availability
 
 ```bash
 pip install -r requirements.txt
-python app.py              # starts on port 8000, opens browser
-python app.py --port 9000  # custom port
-python app.py --no-browser # don't auto-open browser
+python app.py                                          # starts on port 8000, opens browser
+python app.py --port 9000                              # custom port
+python app.py --no-browser                             # don't auto-open browser
+python app.py --external-ip 34.xx.xx.xx --no-browser   # GCP VM deployment
+python app.py --external-ip 34.xx.xx.xx --tile-port-start 9001 --no-browser  # custom tile port range
 ```
 
 Requires GDAL system libraries on PATH. COG data files must be in `data/` (gitignored, not in repo).
+
+### GCP / Remote Deployment
+
+When running on a VM (e.g., GCP), use `--external-ip` so tile URLs point to the VM's public IP:
+
+```bash
+python app.py --external-ip <VM_EXTERNAL_IP> --no-browser
+```
+
+- The main HTTP server listens on `0.0.0.0:<port>` (default 8000)
+- Each tile layer gets a dedicated port starting from `--tile-port-start` (default 8001), incrementing per layer
+- **Firewall**: allow port 8000 (app) and ports 8001+ (tile servers — one per activated layer)
 
 ## Architecture
 
 **Single-file app** (`app.py`) that handles everything:
 
 1. **Startup**: scans `data/` for COG files, loads `dataset_label_mapping.json`, generates `map.html` with injected sidebar/legend data, starts HTTP server
-2. **HTTP server** (`MapHandler`): serves static files plus two API endpoints:
+2. **HTTP server** (`MapHandler`): serves static files plus three API endpoints:
    - `GET /api/activate?layer_id=<id>` — lazily starts a `TileClient` for the requested layer, returns its tile URL
    - `GET /api/query?lat=<lat>&lng=<lng>&layer_id=<id>` — reads pixel value from raster via `rasterio`, returns class name/color
+   - `GET|POST /api/stats` — computes class distribution within a bounding box (GET) or arbitrary GeoJSON geometry (POST)
 3. **Frontend** (`map.html`): generated at startup, not hand-edited. Contains inline Leaflet.js that fetches tile URLs from `/api/activate` on layer selection
+4. **ToolBox** (right sidebar): GeoJSON Import/Export (draw point/rectangle/polygon, upload shapefile/GeoJSON, save to file) and Area Statistics (class distribution with area in km², time-series year stepping)
 
 Key data flow: user clicks sidebar -> JS calls `/api/activate` -> Python creates `TileClient` -> returns tile URL -> Leaflet renders tiles directly from `localtileserver` port.
 

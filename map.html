@@ -224,14 +224,23 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> GLAD GLCLU</div>
   <div class="dataset-years">
     <div class="year-item" id="yi-glad_glclu_2020" onclick="selectLayer('glad_glclu', 2020)">2020</div>
+    <div class="year-item" id="yi-glad_glclu_2015" onclick="selectLayer('glad_glclu', 2015)">2015</div>
+    <div class="year-item" id="yi-glad_glclu_2010" onclick="selectLayer('glad_glclu', 2010)">2010</div>
+    <div class="year-item" id="yi-glad_glclu_2005" onclick="selectLayer('glad_glclu', 2005)">2005</div>
   </div>
 </div>
 <div class="dataset-group">
   <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> GLC_FCS30D</div>
   <div class="dataset-years">
-    <div class="year-item" id="yi-glc_fcs30d_2021" onclick="selectLayer('glc_fcs30d', 2021)">2021</div>
+    <div class="year-item" id="yi-glc_fcs30d_2022" onclick="selectLayer('glc_fcs30d', 2022)">2022</div>
     <div class="year-item" id="yi-glc_fcs30d_2020" onclick="selectLayer('glc_fcs30d', 2020)">2020</div>
-    <div class="year-item" id="yi-glc_fcs30d_2019" onclick="selectLayer('glc_fcs30d', 2019)">2019</div>
+    <div class="year-item" id="yi-glc_fcs30d_2015" onclick="selectLayer('glc_fcs30d', 2015)">2015</div>
+    <div class="year-item" id="yi-glc_fcs30d_2010" onclick="selectLayer('glc_fcs30d', 2010)">2010</div>
+    <div class="year-item" id="yi-glc_fcs30d_2005" onclick="selectLayer('glc_fcs30d', 2005)">2005</div>
+    <div class="year-item" id="yi-glc_fcs30d_2000" onclick="selectLayer('glc_fcs30d', 2000)">2000</div>
+    <div class="year-item" id="yi-glc_fcs30d_1995" onclick="selectLayer('glc_fcs30d', 1995)">1995</div>
+    <div class="year-item" id="yi-glc_fcs30d_1990" onclick="selectLayer('glc_fcs30d', 1990)">1990</div>
+    <div class="year-item" id="yi-glc_fcs30d_1985" onclick="selectLayer('glc_fcs30d', 1985)">1985</div>
   </div>
 </div>
 
@@ -323,14 +332,14 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // Configuration (injected by Python)
 // =====================================================================
 var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "sunstone_lulc_9classes Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
-var DATASET_YEARS = {"sunstone_kenya_lulc_9C": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "dynamicworld": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "esri_lulc": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "worldcover": [2021, 2020], "glad_glclu": [2020], "glc_fcs30d": [2021, 2020, 2019]};
+var DATASET_YEARS = {"sunstone_kenya_lulc_9C": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "dynamicworld": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "esri_lulc": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "worldcover": [2021, 2020], "glad_glclu": [2020, 2015, 2010, 2005], "glc_fcs30d": [2022, 2020, 2015, 2010, 2005, 2000, 1995, 1990, 1985]};
 
 // =====================================================================
 // Map Initialization
 // =====================================================================
 var map = L.map('map', {
     center: [0.0236, 37.9062],
-    zoom: 7,
+    zoom: 8,
     zoomControl: true
 });
 
