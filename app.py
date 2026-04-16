@@ -58,12 +58,12 @@ DATASET_REGISTRY = {
     "glad_glclu": {
         "display_name": "GLAD GLCLU",
         "file_template": "glad_glclu_{year}_cog.tif",
-        "available_years": [2020],
+        "available_years": [2020, 2015, 2010, 2005],
     },
     "glc_fcs30d": {
         "display_name": "GLC_FCS30D",
         "file_template": "glc_fcs30d_{year}_cog.tif",
-        "available_years": [2021, 2020, 2019],
+        "available_years": [2022, 2020, 2015, 2010, 2005, 2000, 1995, 1990, 1985],
     },
 }
 
