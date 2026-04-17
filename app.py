@@ -725,15 +725,37 @@ function setOpacity(val){
 // =====================================================================
 // Click / Pixel Inspector
 // =====================================================================
+function queryEsriImageryMeta(lat, lng){
+    var bounds = map.getBounds(), size = map.getSize();
+    var geom = JSON.stringify({x: lng, y: lat, spatialReference: {wkid: 4326}});
+    var url = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify'
+        + '?f=json&geometryType=esriGeometryPoint&sr=4326&layers=all:0&tolerance=0&returnGeometry=false'
+        + '&geometry=' + encodeURIComponent(geom)
+        + '&mapExtent=' + bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth()
+        + '&imageDisplay=' + size.x + ',' + size.y + ',96';
+    return fetch(url).then(function(r){return r.json()}).then(function(d){
+        if(!d.results || !d.results.length) return null;
+        var r0 = d.results[0], a = r0.attributes || {};
+        var date = a.SRC_DATE2 || a.SRC_DATE || a['DATE (YYYYMMDD)'] || null;
+        if(!date) return null;
+        return {date: String(date), source: r0.layerName || a.DESCRIPTION || 'ESRI World Imagery'};
+    }).catch(function(){return null});
+}
+
 map.on('click', function(e){
     if(activeDrawMode) return;
-    if(!activeOverlay) return;
-    var lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
-    fetch('/api/query?lat='+lat+'&lng='+lng+'&layer_id='+encodeURIComponent(activeOverlay.layerId))
-        .then(function(r){return r.json()})
-        .then(function(d){
-            if(d.error) return;
-            var c = '<div class="pixel-info">';
+    var lat = e.latlng.lat, lng = e.latlng.lng;
+    var pixelP = activeOverlay
+        ? fetch('/api/query?lat='+lat.toFixed(6)+'&lng='+lng.toFixed(6)+'&layer_id='+encodeURIComponent(activeOverlay.layerId))
+            .then(function(r){return r.json()}).catch(function(){return null})
+        : Promise.resolve(null);
+    var esriP = currentBasemap === 'esri' ? queryEsriImageryMeta(lat, lng) : Promise.resolve(null);
+
+    Promise.all([pixelP, esriP]).then(function(parts){
+        var d = parts[0], esri = parts[1];
+        if((!d || d.error) && !esri) return;
+        var c = '<div class="pixel-info">';
+        if(d && !d.error){
             if(d.class_name){
                 c += '<div><span class="pi-swatch" style="background:'+d.color+'"></span>';
                 c += '<span class="pi-class">'+d.class_name+'</span></div>';
@@ -742,10 +764,14 @@ map.on('click', function(e){
                 c += '<span class="pi-class">'+d.description+'</span></div>';
             }
             c += '<div>Pixel value: '+d.value+'</div>';
-            c += '<div style="color:#888;font-size:11px">'+lat+', '+lng+'</div></div>';
-            L.popup().setLatLng(e.latlng).setContent(c).openOn(map);
-        })
-        .catch(function(){});
+        }
+        if(esri){
+            c += '<div style="margin-top:4px;padding-top:4px;border-top:1px solid #eee;font-size:12px;color:#555">';
+            c += 'World Imagery Date: '+esri.date+'</div>';
+        }
+        c += '<div style="color:#888;font-size:11px">'+lat.toFixed(6)+', '+lng.toFixed(6)+'</div></div>';
+        L.popup().setLatLng(e.latlng).setContent(c).openOn(map);
+    });
 });
 
 // =====================================================================

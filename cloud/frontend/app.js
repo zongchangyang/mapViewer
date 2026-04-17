@@ -368,32 +368,66 @@ function setOpacity(val){
 }
 
 // =====================================================================
-// Click → point query (was /api/query)
+// Click → point query (was /api/query) + ESRI basemap date
 // =====================================================================
+function queryEsriImageryMeta(lat, lng){
+    var bounds = map.getBounds(), size = map.getSize();
+    var geom = JSON.stringify({x: lng, y: lat, spatialReference: {wkid: 4326}});
+    var url = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify'
+        + '?f=json&geometryType=esriGeometryPoint&sr=4326&layers=all:0&tolerance=0&returnGeometry=false'
+        + '&geometry=' + encodeURIComponent(geom)
+        + '&mapExtent=' + bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth()
+        + '&imageDisplay=' + size.x + ',' + size.y + ',96';
+    return fetch(url).then(function(r){return r.json()}).then(function(d){
+        if (!d.results || !d.results.length) return null;
+        var r0 = d.results[0], a = r0.attributes || {};
+        var date = a.SRC_DATE2 || a.SRC_DATE || a['DATE (YYYYMMDD)'] || null;
+        if (!date) return null;
+        return {date: String(date), source: r0.layerName || a.DESCRIPTION || 'ESRI World Imagery'};
+    }).catch(function(){return null});
+}
+
 map.on('click', function(e){
     if (activeDrawMode) return;
-    if (!activeOverlay) return;
-    var lat = e.latlng.lat;
-    var lng = e.latlng.lng;
-    var entry = LAYER_INDEX[activeOverlay.layerId];
-    if (!entry) return;
-    var url = TITILER_BASE + '/cog/point/' + lng + ',' + lat + '?url=' + encodeURIComponent(entry.url);
-    fetch(url).then(function(r){return r.json()}).then(function(d){
-        if (!d || !d.values) return;
-        var val = Math.round(d.values[0]);
-        var decoded = decodePixelValue(val, activeOverlay.layerId);
-        var c = '<div class="pixel-info">';
-        if (decoded.class_name) {
-            c += '<div><span class="pi-swatch" style="background:' + decoded.color + '"></span>';
-            c += '<span class="pi-class">' + escapeHtml(decoded.class_name) + '</span></div>';
-        } else if (decoded.description) {
-            c += '<div><span class="pi-swatch" style="background:' + decoded.color + '"></span>';
-            c += '<span class="pi-class">' + escapeHtml(decoded.description) + '</span></div>';
+    var lat = e.latlng.lat, lng = e.latlng.lng;
+
+    var pixelP = Promise.resolve(null);
+    if (activeOverlay) {
+        var entry = LAYER_INDEX[activeOverlay.layerId];
+        if (entry) {
+            var url = TITILER_BASE + '/cog/point/' + lng + ',' + lat + '?url=' + encodeURIComponent(entry.url);
+            pixelP = fetch(url).then(function(r){return r.json()}).catch(function(){return null});
         }
-        c += '<div>Pixel value: ' + val + '</div>';
+    }
+    var esriP = currentBasemap === 'esri' ? queryEsriImageryMeta(lat, lng) : Promise.resolve(null);
+
+    Promise.all([pixelP, esriP]).then(function(parts){
+        var pixel = parts[0], esri = parts[1];
+        var decoded = null, val = null;
+        if (pixel && pixel.values) {
+            val = Math.round(pixel.values[0]);
+            decoded = decodePixelValue(val, activeOverlay.layerId);
+        }
+        if (!decoded && !esri) return;
+
+        var c = '<div class="pixel-info">';
+        if (decoded) {
+            if (decoded.class_name) {
+                c += '<div><span class="pi-swatch" style="background:' + decoded.color + '"></span>';
+                c += '<span class="pi-class">' + escapeHtml(decoded.class_name) + '</span></div>';
+            } else if (decoded.description) {
+                c += '<div><span class="pi-swatch" style="background:' + decoded.color + '"></span>';
+                c += '<span class="pi-class">' + escapeHtml(decoded.description) + '</span></div>';
+            }
+            c += '<div>Pixel value: ' + val + '</div>';
+        }
+        if (esri) {
+            c += '<div style="margin-top:4px;padding-top:4px;border-top:1px solid #eee;font-size:12px;color:#555">';
+            c += 'World Imagery Date: ' + escapeHtml(esri.date) + '</div>';
+        }
         c += '<div style="color:#888;font-size:11px">' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</div></div>';
         L.popup().setLatLng(e.latlng).setContent(c).openOn(map);
-    }).catch(function(){});
+    });
 });
 
 // =====================================================================

@@ -171,7 +171,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 
   <div class="sidebar-section">
-    <h3>LULC Layers</h3>
+    <h3>Land Use / Land Cover Layers</h3>
     <div class="dataset-group">
   <div class="dataset-header" onclick="toggleGroup(this)"><span class="arrow">&#9656;</span> Sunstone LULC</div>
   <div class="dataset-years">
@@ -331,7 +331,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // =====================================================================
 // Configuration (injected by Python)
 // =====================================================================
-var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "sunstone_lulc_9classes Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
+var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "Sunstone Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
 var DATASET_YEARS = {"sunstone_kenya_lulc_9C": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "dynamicworld": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "esri_lulc": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "worldcover": [2021, 2020], "glad_glclu": [2020, 2015, 2010, 2005], "glc_fcs30d": [2022, 2020, 2015, 2010, 2005, 2000, 1995, 1990, 1985]};
 
 // =====================================================================
@@ -503,15 +503,37 @@ function setOpacity(val){
 // =====================================================================
 // Click / Pixel Inspector
 // =====================================================================
+function queryEsriImageryMeta(lat, lng){
+    var bounds = map.getBounds(), size = map.getSize();
+    var geom = JSON.stringify({x: lng, y: lat, spatialReference: {wkid: 4326}});
+    var url = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify'
+        + '?f=json&geometryType=esriGeometryPoint&sr=4326&layers=all:0&tolerance=0&returnGeometry=false'
+        + '&geometry=' + encodeURIComponent(geom)
+        + '&mapExtent=' + bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth()
+        + '&imageDisplay=' + size.x + ',' + size.y + ',96';
+    return fetch(url).then(function(r){return r.json()}).then(function(d){
+        if(!d.results || !d.results.length) return null;
+        var r0 = d.results[0], a = r0.attributes || {};
+        var date = a.SRC_DATE2 || a.SRC_DATE || a['DATE (YYYYMMDD)'] || null;
+        if(!date) return null;
+        return {date: String(date), source: r0.layerName || a.DESCRIPTION || 'ESRI World Imagery'};
+    }).catch(function(){return null});
+}
+
 map.on('click', function(e){
     if(activeDrawMode) return;
-    if(!activeOverlay) return;
-    var lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
-    fetch('/api/query?lat='+lat+'&lng='+lng+'&layer_id='+encodeURIComponent(activeOverlay.layerId))
-        .then(function(r){return r.json()})
-        .then(function(d){
-            if(d.error) return;
-            var c = '<div class="pixel-info">';
+    var lat = e.latlng.lat, lng = e.latlng.lng;
+    var pixelP = activeOverlay
+        ? fetch('/api/query?lat='+lat.toFixed(6)+'&lng='+lng.toFixed(6)+'&layer_id='+encodeURIComponent(activeOverlay.layerId))
+            .then(function(r){return r.json()}).catch(function(){return null})
+        : Promise.resolve(null);
+    var esriP = currentBasemap === 'esri' ? queryEsriImageryMeta(lat, lng) : Promise.resolve(null);
+
+    Promise.all([pixelP, esriP]).then(function(parts){
+        var d = parts[0], esri = parts[1];
+        if((!d || d.error) && !esri) return;
+        var c = '<div class="pixel-info">';
+        if(d && !d.error){
             if(d.class_name){
                 c += '<div><span class="pi-swatch" style="background:'+d.color+'"></span>';
                 c += '<span class="pi-class">'+d.class_name+'</span></div>';
@@ -520,10 +542,14 @@ map.on('click', function(e){
                 c += '<span class="pi-class">'+d.description+'</span></div>';
             }
             c += '<div>Pixel value: '+d.value+'</div>';
-            c += '<div style="color:#888;font-size:11px">'+lat+', '+lng+'</div></div>';
-            L.popup().setLatLng(e.latlng).setContent(c).openOn(map);
-        })
-        .catch(function(){});
+        }
+        if(esri){
+            c += '<div style="margin-top:4px;padding-top:4px;border-top:1px solid #eee;font-size:12px;color:#555">';
+            c += 'World Imagery Date: '+esri.date+'</div>';
+        }
+        c += '<div style="color:#888;font-size:11px">'+lat.toFixed(6)+', '+lng.toFixed(6)+'</div></div>';
+        L.popup().setLatLng(e.latlng).setContent(c).openOn(map);
+    });
 });
 
 // =====================================================================
