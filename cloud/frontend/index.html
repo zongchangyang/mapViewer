@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KenyaMap — Kenya Land Cover Viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="container">
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <h1>KenyaMap</h1>
+
+  <div class="sidebar-section">
+    <h3>Basemap</h3>
+    <div class="basemap-option" id="bm-osm" onclick="setBasemap('osm')">OpenStreetMap</div>
+    <div class="basemap-option active" id="bm-esri" onclick="setBasemap('esri')">ESRI World Imagery</div>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>LULC Layers</h3>
+    <div id="sidebar-datasets"><!-- populated by app.js --></div>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>Change Detection</h3>
+    <div class="sim-item" id="sim-item" onclick="selectLayer('similarity', null)">
+      Similarity (2017 vs 2025)
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <button class="clear-btn" id="clear-btn" onclick="clearActiveLayer()">Clear Active Layer</button>
+  </div>
+
+  <div class="sidebar-section opacity-section">
+    <label>Opacity <span class="opacity-value" id="opacity-val">80%</span></label>
+    <input type="range" id="opacity-slider" min="0" max="100" value="80" oninput="setOpacity(this.value)">
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map">
+  <div class="loading-overlay" id="loading">Loading tiles&hellip;</div>
+</div>
+
+<!-- ToolBox -->
+<div id="toolbox">
+  <h2>ToolBox</h2>
+
+  <div class="tool-section">
+    <div class="tool-section-header" onclick="toggleToolSection(this)">
+      <span class="arrow">&#9656;</span> GeoJSON Import/Export
+    </div>
+    <div class="tool-section-body">
+      <button class="tool-btn" id="geojson-point-btn" onclick="startGeoJSONDraw('point')">Draw Point</button>
+      <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
+      <button class="tool-btn" id="geojson-poly-btn" onclick="startGeoJSONDraw('polygon')">Draw Polygon</button>
+      <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
+      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleFileUpload(this)">
+      <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
+      <textarea class="geojson-textarea" id="geojson-output" readonly placeholder="Draw a shape to see GeoJSON here..."></textarea>
+      <button class="tool-btn" id="geojson-copy-btn" onclick="copyGeoJSON()" style="display:none">Copy to Clipboard</button>
+      <button class="tool-btn" id="geojson-save-btn" onclick="saveGeoJSON()" style="display:none">Save as JSON</button>
+    </div>
+  </div>
+
+  <div class="tool-section">
+    <div class="tool-section-header" onclick="toggleToolSection(this)">
+      <span class="arrow">&#9656;</span> Area Statistics
+    </div>
+    <div class="tool-section-body">
+      <div id="stats-no-layer" class="no-layer-msg">Select a layer first</div>
+      <div id="stats-controls" style="display:none">
+        <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw('rect')">Draw Rectangle</button>
+        <button class="tool-btn" id="stats-poly-btn" onclick="startStatsDraw('poly')">Draw Polygon</button>
+        <button class="tool-btn" id="stats-upload-btn" onclick="document.getElementById('stats-file-input').click()">Upload File</button>
+        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleStatsFileUpload(this)">
+        <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
+        <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">Computing statistics...</div>
+        <div id="stats-results" class="stats-results"></div>
+        <div id="stats-stepper" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #2a2a4a">
+          <div style="font-size:.8em;color:#888;text-align:center;margin-bottom:6px">Time-Series Step</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="tool-btn" id="stats-step-back" onclick="statsStepYear(-1)">&#9664;</button>
+            <div id="stats-step-year" style="flex:1;text-align:center;font-size:1.1em;color:#00d2ff;font-weight:600">----</div>
+            <button class="tool-btn" id="stats-step-fwd" onclick="statsStepYear(1)">&#9654;</button>
+          </div>
+          <div id="stats-step-range" style="font-size:.75em;color:#666;text-align:center;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

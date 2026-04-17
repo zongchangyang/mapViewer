@@ -1,0 +1,64 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloud/frontend/**'
+      - 'dataset_label_mapping.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Cloud Run TiTiler URL. Override by setting a repo variable TITILER_BASE
+      # in Settings → Secrets and variables → Actions → Variables.
+      TITILER_BASE: ${{ vars.TITILER_BASE || 'https://kenyamap-titiler-720002002328.us-east1.run.app' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          cp -r cloud/frontend/. _site/
+          # Keep the repo-root label mapping authoritative.
+          cp dataset_label_mapping.json _site/dataset_label_mapping.json
+
+      - name: Inject TITILER_BASE into config.js
+        run: |
+          cat > _site/config.js <<EOF
+          window.KENYAMAP_CONFIG = {
+              TITILER_BASE: '${TITILER_BASE}',
+              KENYA_CENTER: [0.0236, 37.9062],
+              KENYA_ZOOM: 8,
+          };
+          EOF
+          echo "Generated config.js:"
+          cat _site/config.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
