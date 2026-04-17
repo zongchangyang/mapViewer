@@ -925,5 +925,11 @@ setTimeout(function(){map.invalidateSize()}, 200);
 // Kick off
 bootstrap().catch(function(err){
     console.error('Bootstrap failed:', err);
-    alert('Failed to load: ' + err + '\nIs TITILER_BASE (' + TITILER_BASE + ') reachable?');
+    var sb = document.getElementById('sidebar-datasets');
+    if (sb) {
+        sb.innerHTML = '<div class="sidebar-error">'
+            + 'Failed to load datasets.<br>'
+            + '<span style="font-size:.8em;color:#888">' + escapeHtml(String(err)) + '</span><br>'
+            + '<button onclick="location.reload()">Retry</button></div>';
+    }
 });

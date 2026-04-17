@@ -100,6 +100,14 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 }
 .no-layer-msg{color:#666;font-size:.8em;font-style:italic}
 
+.sidebar-loading{padding:10px 20px;color:#aaa;font-size:.85em}
+.sidebar-loading-hint{margin-top:4px;font-size:.75em;color:#666;font-style:italic}
+.sidebar-error{padding:10px 20px;color:#e74c3c;font-size:.85em}
+.sidebar-error button{
+  margin-top:8px;padding:6px 12px;background:#0f3460;color:#00d2ff;
+  border:1px solid #00d2ff;border-radius:4px;cursor:pointer;font-size:.85em;
+}
+
 /* Map */
 #map{flex:1;z-index:1}
 
