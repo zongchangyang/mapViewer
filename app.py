@@ -464,7 +464,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 
   <div class="sidebar-section">
-    <h3>LULC Layers</h3>
+    <h3>Land Use / Land Cover Layers</h3>
     __SIDEBAR_DATASETS__
   </div>
 
