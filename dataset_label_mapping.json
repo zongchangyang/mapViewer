@@ -692,7 +692,7 @@
   },
 
   "sunstone_kenya_lulc_9C": {
-    "name": "sunstone_lulc_9classes Kenya Land Cover",
+    "name": "Sunstone Kenya Land Cover",
     "description": "sunstone_lulc_9classes Kenya 10-meter Land Cover Change Dataset (2017-2024)",
     "source": "Sunstone Institute",
     "resolution": 10,
