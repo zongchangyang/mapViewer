@@ -308,6 +308,12 @@ function applyLayer(datasetKey, year, layerId, tileUrl){
     updateSidebarHighlight(layerId);
     document.getElementById('clear-btn').classList.add('show');
     updateStatsVisibility();
+
+    // If a stats query is pending, recompute for the new layer (keeps drawn geometry)
+    if (lastStatsQuery) {
+        if (lastStatsQuery.type === 'bbox') fetchAreaStats(lastStatsQuery.bounds, layerId);
+        else fetchAreaStatsGeometry(lastStatsQuery.geojson, layerId);
+    }
 }
 
 function clearActiveLayer(){
@@ -886,11 +892,8 @@ function statsStepYear(direction){
     var idx = years.indexOf(activeOverlay.year);
     var newIdx = idx - direction;
     if (newIdx < 0 || newIdx >= years.length) return;
-    var newYear = years[newIdx];
-    var newLayerId = activeOverlay.datasetKey + '_' + newYear;
-    selectLayer(activeOverlay.datasetKey, newYear);
-    if (lastStatsQuery.type === 'bbox') fetchAreaStats(lastStatsQuery.bounds, newLayerId);
-    else fetchAreaStatsGeometry(lastStatsQuery.geojson, newLayerId);
+    // applyLayer picks up lastStatsQuery and refreshes stats automatically
+    selectLayer(activeOverlay.datasetKey, years[newIdx]);
 }
 
 // =====================================================================
