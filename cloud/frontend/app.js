@@ -667,9 +667,12 @@ function _runStats(geojson, layerId){
     else body = {type:'Feature', geometry: geojson, properties: {}};
 
     var isCategorical = (layerId !== 'similarity');
-    // max_size=3163 (sqrt of 10M) caps the output grid's longer dim, so TiTiler
-    // reads from COG overviews instead of native resolution when selection > ~10M pixels.
-    var url = TITILER_BASE + '/cog/statistics?url=' + encodeURIComponent(entry.url) + '&max_size=3163';
+    // max_size=1024 caps the output grid's longer dim, letting TiTiler read from
+    // COG overviews instead of native resolution. Empirically 1024 stays well
+    // under Cloud Run's memory/timeout budget while giving ~1M output pixels —
+    // plenty for class-distribution estimates. Higher values (2048+) are 3x+
+    // slower or fail; overview accuracy dominates final-step resampling anyway.
+    var url = TITILER_BASE + '/cog/statistics?url=' + encodeURIComponent(entry.url) + '&max_size=1024';
     if (isCategorical) url += '&categorical=true';
 
     fetch(url, {
