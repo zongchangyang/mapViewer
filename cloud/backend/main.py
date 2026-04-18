@@ -22,40 +22,50 @@ BUCKET = os.environ.get("BUCKET", "sunstone-earthengine-data")
 COG_PREFIX = os.environ.get("COG_PREFIX", "results/merged_cog").strip("/")
 
 # Mirror of DATASET_REGISTRY in app.py. Keep in sync when datasets change.
+# resolution_m is the native pixel size; used client-side to estimate native
+# pixel count before calling /cog/statistics so the frontend can display an
+# "estimated at 1/Nx resolution" note when TiTiler falls back to overviews.
 DATASET_REGISTRY = {
     "sunstone_kenya_lulc_9C": {
         "display_name": "Sunstone LULC",
         "file_template": "sunstone_kenya_lulc_{year}_9Classes_assembleV1_cog.tif",
         "available_years": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017],
+        "resolution_m": 10,
     },
     "dynamicworld": {
         "display_name": "Dynamic World",
         "file_template": "dynamicworld_{year}_cog.tif",
         "available_years": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017],
+        "resolution_m": 10,
     },
     "esri_lulc": {
         "display_name": "ESRI LULC",
         "file_template": "esri_lulc_{year}_cog.tif",
         "available_years": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017],
+        "resolution_m": 10,
     },
     "worldcover": {
         "display_name": "ESA WorldCover",
         "file_template": "worldcover_{year}_cog.tif",
         "available_years": [2021, 2020],
+        "resolution_m": 10,
     },
     "glad_glclu": {
         "display_name": "GLAD GLCLU",
         "file_template": "glad_glclu_{year}_cog.tif",
         "available_years": [2020, 2015, 2010, 2005, 2000],
+        "resolution_m": 30,
     },
     "glc_fcs30d": {
         "display_name": "GLC_FCS30D",
         "file_template": "glc_fcs30d_{year}_cog.tif",
         "available_years": [2022, 2021, 2020, 2019, 2015, 2010, 2005, 2000, 1995, 1990, 1985],
+        "resolution_m": 30,
     },
 }
 
 SIMILARITY_FILE = "alphaearth_similarity_2017_2025_30m_uint16_cog.tif"
+SIMILARITY_RESOLUTION_M = 30
 
 
 def _gs_url(filename: str) -> str:
@@ -108,6 +118,7 @@ def list_layers():
                 "display_name": cfg["display_name"],
                 "year": year,
                 "url": _gs_url(cfg["file_template"].format(year=year)),
+                "resolution_m": cfg["resolution_m"],
             })
     layers.append({
         "layer_id": "similarity",
@@ -115,6 +126,7 @@ def list_layers():
         "display_name": "AlphaEarth Similarity",
         "year": None,
         "url": _gs_url(SIMILARITY_FILE),
+        "resolution_m": SIMILARITY_RESOLUTION_M,
     })
     return {"layers": layers}
 

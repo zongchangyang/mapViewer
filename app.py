@@ -20,8 +20,11 @@ import http.server
 import socketserver
 import threading
 
+import math
 import numpy as np
 import rasterio
+from rasterio.features import geometry_window, geometry_mask
+from rasterio.transform import Affine
 from localtileserver import TileClient
 
 # =============================================================================
@@ -1048,6 +1051,10 @@ function renderStatsResults(data){
     var el=document.getElementById('stats-results');
     var html='<div style="margin-bottom:6px;color:#aaa;font-size:.85em">Total area: '
         +fmtArea(data.total_area_km2)+'</div>';
+    if(data.decimation_factor && data.decimation_factor>1){
+        html+='<div style="color:#888;font-size:.75em;font-style:italic;margin-bottom:6px">'
+            +'(estimated at 1/'+data.decimation_factor+'x resolution)</div>';
+    }
     if(data.type==='categorical'){
         for(var i=0;i<data.classes.length;i++){
             var c=data.classes[i];
@@ -1325,7 +1332,7 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
                 win_h = r1 - r0 + 1
                 win_w = c1 - c0 + 1
 
-                MAX_PIXELS = 100_000_000
+                MAX_PIXELS = 1_000_000_000
                 if win_h * win_w > MAX_PIXELS:
                     self._send_json({
                         "error": f"Selection too large ({win_h * win_w:,} pixels). "
@@ -1334,33 +1341,38 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
                     return
 
                 window = rasterio.windows.Window(c0, r0, win_w, win_h)
-                data = src.read(1, window=window)
 
-                # Compute pixel area in km² from transform + center latitude
-                import math
+                # Decimate via COG overviews when window is large. Power-of-2 d
+                # means out_shape lands on a pre-built overview level — no further
+                # resampling, the baked-in overview data is returned directly.
+                d = self._decimation_for(win_h, win_w)
+                out_h, out_w = max(1, win_h // d), max(1, win_w // d)
+                data = src.read(1, window=window, out_shape=(out_h, out_w))
+
+                # Pixel area in km² from transform + center latitude, scaled up by d² since
+                # each output pixel now covers d×d native pixels.
                 center_lat = (south + north) / 2
                 px_deg_x = abs(src.transform.a)
                 px_deg_y = abs(src.transform.e)
                 m_per_deg = 111_320 * math.cos(math.radians(center_lat))
                 pixel_area_km2 = (px_deg_x * m_per_deg) * (px_deg_y * 111_320) / 1e6
+                pixel_area_km2 *= d * d
 
         except Exception as e:
             self._send_json({"error": f"Raster read error: {e}"}, 500)
             return
 
         if layer_id == "similarity":
-            result = self._stats_continuous(data, pixel_area_km2)
+            result = self._stats_continuous(data, pixel_area_km2, decimation_factor=d)
         else:
             dataset_key = resolve_dataset_key(layer_id)
-            result = self._stats_categorical(data, dataset_key, pixel_area_km2)
+            result = self._stats_categorical(data, dataset_key, pixel_area_km2, decimation_factor=d)
 
         self._send_json(result)
 
     # ── /api/stats (POST — GeoJSON geometry) ───────────────────────────
     def _handle_stats_geometry(self):
         """Compute class distribution within an arbitrary GeoJSON geometry."""
-        import math
-        from rasterio.mask import mask as rasterio_mask
         from shapely.geometry import shape, mapping
 
         try:
@@ -1392,30 +1404,66 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             with rasterio.open(file_path) as src:
-                data, _ = rasterio_mask(src, geom_jsons, crop=True,
-                                        nodata=0, filled=True)
-                data = data[0]  # single band
+                # Find the raster window covering the geometry's native bbox.
+                window = geometry_window(src, geom_jsons).round_offsets().round_shape()
+                native_h, native_w = int(window.height), int(window.width)
 
-                # Pixel area
+                # Decimate via COG overviews when the window is large. Power-of-2 d
+                # means out_shape lands on a pre-built overview level — no further
+                # resampling needed.
+                d = self._decimation_for(native_h, native_w)
+                out_h = max(1, native_h // d)
+                out_w = max(1, native_w // d)
+
+                data = src.read(1, window=window, out_shape=(out_h, out_w))
+
+                # Rasterize the polygon(s) onto the same decimated grid so pixels
+                # outside the geometry become 0 (matches the prior rasterio.mask
+                # nodata=0 semantic).
+                win_tf = src.window_transform(window)
+                dec_tf = Affine(win_tf.a * d, 0, win_tf.c,
+                                0, win_tf.e * d, win_tf.f)
+                mask = geometry_mask(geom_jsons, out_shape=(out_h, out_w),
+                                     transform=dec_tf, invert=True)
+                data = np.where(mask, data, 0)
+
+                # Pixel area in km² — scale up by d² since each output pixel now
+                # covers d×d native pixels.
                 center_lat = sum(s.centroid.y for s in shapes) / len(shapes)
                 px_deg_x = abs(src.transform.a)
                 px_deg_y = abs(src.transform.e)
                 m_per_deg = 111_320 * math.cos(math.radians(center_lat))
                 pixel_area_km2 = (px_deg_x * m_per_deg) * (px_deg_y * 111_320) / 1e6
+                pixel_area_km2 *= d * d
 
         except Exception as e:
             self._send_json({"error": f"Raster read error: {e}"}, 500)
             return
 
         if layer_id == "similarity":
-            result = self._stats_continuous(data, pixel_area_km2)
+            result = self._stats_continuous(data, pixel_area_km2, decimation_factor=d)
         else:
             dataset_key = resolve_dataset_key(layer_id)
-            result = self._stats_categorical(data, dataset_key, pixel_area_km2)
+            result = self._stats_categorical(data, dataset_key, pixel_area_km2, decimation_factor=d)
 
         self._send_json(result)
 
-    def _stats_categorical(self, data, dataset_key, pixel_area_km2):
+    @staticmethod
+    def _decimation_for(native_h, native_w, threshold=10_000_000, max_side=3163):
+        """Pick a decimation factor for a raster window.
+
+        Returns 1 when native pixel count <= threshold (full-resolution read).
+        Otherwise snaps to the next power of 2 so `out_shape=(h//d, w//d)` lands
+        exactly on a COG overview level (typically 2x, 4x, 8x, 16x), letting
+        rasterio read the pre-downsampled data directly with no further resampling.
+        """
+        if native_h * native_w <= threshold:
+            return 1
+        d_raw = max(2, math.ceil(max(native_h, native_w) / max_side))
+        # Round up to the next power of 2: 3→4, 5→8, 9→16, etc.
+        return 1 << (d_raw - 1).bit_length()
+
+    def _stats_categorical(self, data, dataset_key, pixel_area_km2, decimation_factor=1):
         """Compute class distribution for categorical LULC data."""
         ds = _label_mappings.get(dataset_key, {})
         unique, counts = np.unique(data, return_counts=True)
@@ -1463,15 +1511,17 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
 
         total_area_km2 = round(total * pixel_area_km2, 2)
         return {"type": "categorical", "total_pixels": total,
-                "total_area_km2": total_area_km2, "classes": classes}
+                "total_area_km2": total_area_km2, "classes": classes,
+                "decimation_factor": decimation_factor}
 
-    def _stats_continuous(self, data, pixel_area_km2):
+    def _stats_continuous(self, data, pixel_area_km2, decimation_factor=1):
         """Compute value distribution for continuous (similarity) data."""
         valid = data[data > 0]
         total = int(valid.size)
         if total == 0:
             return {"type": "continuous", "total_pixels": 0, "total_area_km2": 0,
-                    "buckets": [], "min_val": 0, "max_val": 0, "mean_val": 0}
+                    "buckets": [], "min_val": 0, "max_val": 0, "mean_val": 0,
+                    "decimation_factor": decimation_factor}
 
         bucket_defs = [
             (0, 500, "Very similar (minimal change)", "#00ff00"),
@@ -1494,6 +1544,7 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
             "total_area_km2": total_area_km2,
             "min_val": int(valid.min()), "max_val": int(valid.max()),
             "mean_val": float(valid.mean()), "buckets": buckets,
+            "decimation_factor": decimation_factor,
         }
 
     def log_message(self, fmt, *args):

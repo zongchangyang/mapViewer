@@ -667,7 +667,9 @@ function _runStats(geojson, layerId){
     else body = {type:'Feature', geometry: geojson, properties: {}};
 
     var isCategorical = (layerId !== 'similarity');
-    var url = TITILER_BASE + '/cog/statistics?url=' + encodeURIComponent(entry.url);
+    // max_size=3163 (sqrt of 10M) caps the output grid's longer dim, so TiTiler
+    // reads from COG overviews instead of native resolution when selection > ~10M pixels.
+    var url = TITILER_BASE + '/cog/statistics?url=' + encodeURIComponent(entry.url) + '&max_size=3163';
     if (isCategorical) url += '&categorical=true';
 
     fetch(url, {
@@ -694,9 +696,10 @@ function _runStats(geojson, layerId){
         var b1 = featureStats.b1;
         var geomForArea = (body.type === 'Feature') ? body.geometry : body.features[0].geometry;
         var pixelAreaKm2 = estimatePixelAreaKm2(geomForArea, b1);
+        var dFactor = estimateDecimationFactor(entry, geomForArea, b1);
         var result = isCategorical
-            ? statsCategorical(b1, layerId, pixelAreaKm2)
-            : statsContinuous(b1, pixelAreaKm2);
+            ? statsCategorical(b1, layerId, pixelAreaKm2, dFactor)
+            : statsContinuous(b1, pixelAreaKm2, dFactor);
         renderStatsResults(result);
         updateStatsStepper();
     }).catch(function(err){
@@ -713,6 +716,20 @@ function estimatePixelAreaKm2(geometry, b1){
     if (!validPixels) return 0;
     var areaM2 = geometryAreaSqMeters(geometry);
     return (areaM2 / validPixels) / 1e6;
+}
+
+// How much TiTiler downsampled: ratio of "what it would have read at native res"
+// to "what it actually returned". >1 means overview was used.
+function estimateDecimationFactor(entry, geometry, b1){
+    var res = entry && entry.resolution_m;
+    var validPixels = b1.valid_pixels || b1.count || 0;
+    if (!res || !validPixels) return 1;
+    var areaM2 = geometryAreaSqMeters(geometry);
+    var nativePixels = areaM2 / (res * res);
+    if (nativePixels <= 0) return 1;
+    var ratio = nativePixels / validPixels;
+    // Area ratio -> linear factor. < 1.5 is noise; report 1 for "essentially native".
+    return ratio < 1.5 ? 1 : Math.max(1, Math.round(Math.sqrt(ratio)));
 }
 
 // Simple spherical-polygon area (outer ring of a Polygon / MultiPolygon).
@@ -740,7 +757,7 @@ function ringAreaSqMeters(coords){
 }
 
 // Categorical: histogram=[[counts],[values]] (when categorical=true)
-function statsCategorical(b1, layerId, pixelAreaKm2){
+function statsCategorical(b1, layerId, pixelAreaKm2, decimationFactor){
     var datasetKey = resolveDatasetKey(layerId);
     var ds = LABEL_MAPPING[datasetKey] || {};
     var hist = b1.histogram || [[],[]];
@@ -776,14 +793,15 @@ function statsCategorical(b1, layerId, pixelAreaKm2){
         total_pixels: total,
         total_area_km2: +(total * pixelAreaKm2).toFixed(2),
         classes: classes,
+        decimation_factor: decimationFactor || 1,
     };
 }
 
 // Continuous (similarity): bucket into the same 5 ranges app.py uses.
-function statsContinuous(b1, pixelAreaKm2){
+function statsContinuous(b1, pixelAreaKm2, decimationFactor){
     var total = b1.valid_pixels || b1.count || 0;
     if (!total) {
-        return {type:'continuous', total_pixels:0, total_area_km2:0, buckets:[], min_val:0, max_val:0, mean_val:0};
+        return {type:'continuous', total_pixels:0, total_area_km2:0, buckets:[], min_val:0, max_val:0, mean_val:0, decimation_factor: decimationFactor || 1};
     }
     var hist = b1.histogram || [[],[]];
     var counts = hist[0] || [];
@@ -827,6 +845,7 @@ function statsContinuous(b1, pixelAreaKm2){
         max_val: Math.round(b1.max),
         mean_val: b1.mean,
         buckets: filtered,
+        decimation_factor: decimationFactor || 1,
     };
 }
 
@@ -838,6 +857,10 @@ function fmtArea(km2){
 function renderStatsResults(data){
     var el = document.getElementById('stats-results');
     var html = '<div style="margin-bottom:6px;color:#aaa;font-size:.85em">Total area: ' + fmtArea(data.total_area_km2) + '</div>';
+    if (data.decimation_factor && data.decimation_factor > 1) {
+        html += '<div style="color:#888;font-size:.75em;font-style:italic;margin-bottom:6px">'
+             + '(estimated at 1/' + data.decimation_factor + 'x resolution)</div>';
+    }
     if (data.type === 'categorical') {
         for (var i=0; i<data.classes.length; i++) {
             var c = data.classes[i];
