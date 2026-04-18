@@ -305,6 +305,8 @@ def generate_html(datasets, legend_data):
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+<script src="https://unpkg.com/@tmcw/togeojson@4/dist/togeojson.umd.js"></script>
+<script src="https://unpkg.com/jszip@3/dist/jszip.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
@@ -510,7 +512,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
       <button class="tool-btn" id="geojson-poly-btn" onclick="startGeoJSONDraw('polygon')">Draw Polygon</button>
       <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
-      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleFileUpload(this)">
+      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleFileUpload(this)">
       <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
       <textarea class="geojson-textarea" id="geojson-output" readonly
                 placeholder="Draw a shape to see GeoJSON here..."></textarea>
@@ -530,7 +532,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw('rect')">Draw Rectangle</button>
         <button class="tool-btn" id="stats-poly-btn" onclick="startStatsDraw('poly')">Draw Polygon</button>
         <button class="tool-btn" id="stats-upload-btn" onclick="document.getElementById('stats-file-input').click()">Upload File</button>
-        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleStatsFileUpload(this)">
+        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleStatsFileUpload(this)">
         <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
         <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">
           Computing statistics...
@@ -879,28 +881,54 @@ function saveGeoJSON(){
     a.click();
     URL.revokeObjectURL(a.href);
 }
+// Parse an uploaded geometry file into a GeoJSON object.
+// Supports: .json/.geojson, .zip/.shp (shapefile), .kml, .kmz.
+function parseGeoFile(file){
+    return new Promise(function(resolve,reject){
+        var name=file.name.toLowerCase();
+        var reader=new FileReader();
+        reader.onerror=function(){reject(new Error('Read failed'))};
+
+        if(name.endsWith('.zip')||name.endsWith('.shp')){
+            reader.onload=function(e){shp(e.target.result).then(resolve,reject)};
+            reader.readAsArrayBuffer(file);
+        } else if(name.endsWith('.kmz')){
+            reader.onload=function(e){
+                JSZip.loadAsync(e.target.result).then(function(zip){
+                    var kmlName=Object.keys(zip.files).find(function(n){
+                        return !zip.files[n].dir && n.toLowerCase().endsWith('.kml');
+                    });
+                    if(!kmlName) return reject(new Error('No .kml inside .kmz'));
+                    return zip.files[kmlName].async('text').then(function(kmlText){
+                        var dom=new DOMParser().parseFromString(kmlText,'text/xml');
+                        resolve(toGeoJSON.kml(dom));
+                    });
+                }).catch(reject);
+            };
+            reader.readAsArrayBuffer(file);
+        } else if(name.endsWith('.kml')){
+            reader.onload=function(e){
+                try{
+                    var dom=new DOMParser().parseFromString(e.target.result,'text/xml');
+                    resolve(toGeoJSON.kml(dom));
+                }catch(err){reject(err)}
+            };
+            reader.readAsText(file);
+        } else {
+            reader.onload=function(e){
+                try{resolve(JSON.parse(e.target.result))}
+                catch(err){reject(err)}
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
 function handleFileUpload(input){
     if(!input.files||!input.files[0]) return;
-    var file=input.files[0];
-    var name=file.name.toLowerCase();
-    if(name.endsWith('.zip')||name.endsWith('.shp')){
-        var reader=new FileReader();
-        reader.onload=function(e){
-            shp(e.target.result).then(function(geojson){
-                displayGeoJSON(geojson);
-            }).catch(function(err){alert('Failed to parse shapefile: '+err)});
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        var reader=new FileReader();
-        reader.onload=function(e){
-            try{
-                var geojson=JSON.parse(e.target.result);
-                displayGeoJSON(geojson);
-            }catch(err){alert('Failed to parse GeoJSON: '+err)}
-        };
-        reader.readAsText(file);
-    }
+    parseGeoFile(input.files[0])
+        .then(displayGeoJSON)
+        .catch(function(err){alert('Failed to parse file: '+err)});
     input.value='';
 }
 function displayGeoJSON(geojson){
@@ -964,26 +992,9 @@ function clearStatsRect(){
 }
 function handleStatsFileUpload(input){
     if(!input.files||!input.files[0]||!activeOverlay) return;
-    var file=input.files[0];
-    var name=file.name.toLowerCase();
-    if(name.endsWith('.zip')||name.endsWith('.shp')){
-        var reader=new FileReader();
-        reader.onload=function(e){
-            shp(e.target.result).then(function(geojson){
-                applyStatsGeometry(geojson);
-            }).catch(function(err){alert('Failed to parse shapefile: '+err)});
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        var reader=new FileReader();
-        reader.onload=function(e){
-            try{
-                var geojson=JSON.parse(e.target.result);
-                applyStatsGeometry(geojson);
-            }catch(err){alert('Failed to parse GeoJSON: '+err)}
-        };
-        reader.readAsText(file);
-    }
+    parseGeoFile(input.files[0])
+        .then(applyStatsGeometry)
+        .catch(function(err){alert('Failed to parse file: '+err)});
     input.value='';
 }
 function applyStatsGeometry(geojson){

@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+<script src="https://unpkg.com/@tmcw/togeojson@4/dist/togeojson.umd.js"></script>
+<script src="https://unpkg.com/jszip@3/dist/jszip.min.js"></script>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -66,7 +68,7 @@
       <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
       <button class="tool-btn" id="geojson-poly-btn" onclick="startGeoJSONDraw('polygon')">Draw Polygon</button>
       <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
-      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleFileUpload(this)">
+      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleFileUpload(this)">
       <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
       <textarea class="geojson-textarea" id="geojson-output" readonly placeholder="Draw a shape to see GeoJSON here..."></textarea>
       <button class="tool-btn" id="geojson-copy-btn" onclick="copyGeoJSON()" style="display:none">Copy to Clipboard</button>
@@ -84,7 +86,7 @@
         <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw('rect')">Draw Rectangle</button>
         <button class="tool-btn" id="stats-poly-btn" onclick="startStatsDraw('poly')">Draw Polygon</button>
         <button class="tool-btn" id="stats-upload-btn" onclick="document.getElementById('stats-file-input').click()">Upload File</button>
-        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleStatsFileUpload(this)">
+        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleStatsFileUpload(this)">
         <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
         <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">Computing statistics...</div>
         <div id="stats-results" class="stats-results"></div>

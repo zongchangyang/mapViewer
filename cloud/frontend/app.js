@@ -529,25 +529,54 @@ function saveGeoJSON(){
     URL.revokeObjectURL(a.href);
 }
 
+// Parse an uploaded geometry file into a GeoJSON object.
+// Supports: .json/.geojson, .zip/.shp (shapefile), .kml, .kmz.
+function parseGeoFile(file){
+    return new Promise(function(resolve, reject){
+        var name = file.name.toLowerCase();
+        var reader = new FileReader();
+        reader.onerror = function(){ reject(new Error('Read failed')); };
+
+        if (name.endsWith('.zip') || name.endsWith('.shp')) {
+            reader.onload = function(e){ shp(e.target.result).then(resolve, reject); };
+            reader.readAsArrayBuffer(file);
+        } else if (name.endsWith('.kmz')) {
+            reader.onload = function(e){
+                JSZip.loadAsync(e.target.result).then(function(zip){
+                    var kmlName = Object.keys(zip.files).find(function(n){
+                        return !zip.files[n].dir && n.toLowerCase().endsWith('.kml');
+                    });
+                    if (!kmlName) return reject(new Error('No .kml inside .kmz'));
+                    return zip.files[kmlName].async('text').then(function(kmlText){
+                        var dom = new DOMParser().parseFromString(kmlText, 'text/xml');
+                        resolve(toGeoJSON.kml(dom));
+                    });
+                }).catch(reject);
+            };
+            reader.readAsArrayBuffer(file);
+        } else if (name.endsWith('.kml')) {
+            reader.onload = function(e){
+                try {
+                    var dom = new DOMParser().parseFromString(e.target.result, 'text/xml');
+                    resolve(toGeoJSON.kml(dom));
+                } catch (err) { reject(err); }
+            };
+            reader.readAsText(file);
+        } else {
+            reader.onload = function(e){
+                try { resolve(JSON.parse(e.target.result)); }
+                catch (err) { reject(err); }
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
 function handleFileUpload(input){
     if (!input.files || !input.files[0]) return;
-    var file = input.files[0];
-    var name = file.name.toLowerCase();
-    var reader = new FileReader();
-    if (name.endsWith('.zip') || name.endsWith('.shp')) {
-        reader.onload = function(e){
-            shp(e.target.result).then(displayGeoJSON).catch(function(err){
-                alert('Failed to parse shapefile: ' + err);
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        reader.onload = function(e){
-            try { displayGeoJSON(JSON.parse(e.target.result)); }
-            catch (err) { alert('Failed to parse GeoJSON: ' + err); }
-        };
-        reader.readAsText(file);
-    }
+    parseGeoFile(input.files[0])
+        .then(displayGeoJSON)
+        .catch(function(err){ alert('Failed to parse file: ' + err); });
     input.value = '';
 }
 
@@ -602,23 +631,9 @@ function clearStatsRect(){
 
 function handleStatsFileUpload(input){
     if (!input.files || !input.files[0] || !activeOverlay) return;
-    var file = input.files[0];
-    var name = file.name.toLowerCase();
-    var reader = new FileReader();
-    if (name.endsWith('.zip') || name.endsWith('.shp')) {
-        reader.onload = function(e){
-            shp(e.target.result).then(applyStatsGeometry).catch(function(err){
-                alert('Failed to parse shapefile: ' + err);
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        reader.onload = function(e){
-            try { applyStatsGeometry(JSON.parse(e.target.result)); }
-            catch (err) { alert('Failed to parse GeoJSON: ' + err); }
-        };
-        reader.readAsText(file);
-    }
+    parseGeoFile(input.files[0])
+        .then(applyStatsGeometry)
+        .catch(function(err){ alert('Failed to parse file: ' + err); });
     input.value = '';
 }
 
