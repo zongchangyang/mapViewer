@@ -58,8 +58,8 @@
     }
   },
   "worldcover": {
-    "name": "ESA WorldCover v100",
-    "description": "ESA WorldCover 10m land cover map version 1.0 (2020)",
+    "name": "ESA WorldCover",
+    "description": "ESA WorldCover 10m land cover dataset",
     "source": "European Space Agency",
     "year": 2020,
     "resolution": 10,
