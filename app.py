@@ -1295,6 +1295,10 @@ function showDetailsModal(mdPath){
 }
 function showGladDetails(){showDetailsModal('/glad_glclu.md');}
 function showGlcDetails(){showDetailsModal('/glc_fcs30d.md');}
+function showSunstoneDetails(){showDetailsModal('/sunstone_kenya_lulc_9C.md');}
+function showDynamicWorldDetails(){showDetailsModal('/dynamicworld.md');}
+function showEsriDetails(){showDetailsModal('/esri_lulc.md');}
+function showWorldCoverDetails(){showDetailsModal('/worldcover.md');}
 function hideDetailsModal(event){
     if(event&&event.target&&event.target.id&&event.target.id!=='details-modal')return;
     document.getElementById('details-modal').classList.remove('show');
@@ -1338,7 +1342,11 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_query(parsed)
         elif parsed.path == "/api/stats":
             self._handle_stats_bbox(parsed)
-        elif parsed.path in ("/datasets.md", "/glad_glclu.md", "/glc_fcs30d.md"):
+        elif parsed.path in (
+            "/datasets.md", "/glad_glclu.md", "/glc_fcs30d.md",
+            "/sunstone_kenya_lulc_9C.md", "/dynamicworld.md",
+            "/esri_lulc.md", "/worldcover.md",
+        ):
             self._handle_static_md(parsed.path.lstrip("/"))
         else:
             super().do_GET()
