@@ -197,6 +197,13 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   border-radius:3px;font-size:.9em;
 }
 .info-modal-body ul,.info-modal-body ol{margin:0 0 12px 24px}
+.info-modal-body .dataset-details-link{
+  display:inline-block;margin:4px 0 0;padding:3px 10px;
+  background:#12122a;color:#00d2ff;border:1px solid #2a2a4a;
+  border-radius:12px;font-size:.85em;text-decoration:none;cursor:pointer;
+}
+.info-modal-body .dataset-details-link:hover{background:#2a2a4a}
+#details-modal{z-index:3100}
 
 /* Pixel popup */
 .pixel-info{font-size:13px;line-height:1.6}

@@ -512,6 +512,13 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   border-radius:3px;font-size:.9em;
 }
 .info-modal-body ul,.info-modal-body ol{margin:0 0 12px 24px}
+.info-modal-body .dataset-details-link{
+  display:inline-block;margin:4px 0 0;padding:3px 10px;
+  background:#12122a;color:#00d2ff;border:1px solid #2a2a4a;
+  border-radius:12px;font-size:.85em;text-decoration:none;cursor:pointer;
+}
+.info-modal-body .dataset-details-link:hover{background:#2a2a4a}
+#details-modal{z-index:3100}
 
 /* ── Pixel popup ────────────────────────────────────────────────────── */
 .pixel-info{font-size:13px;line-height:1.6}
@@ -636,6 +643,14 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="info-modal-card" onclick="event.stopPropagation()">
     <button class="info-modal-close" onclick="hideDatasetsInfo()" aria-label="Close">&times;</button>
     <div class="info-modal-body" id="info-modal-body">Loading&hellip;</div>
+  </div>
+</div>
+
+<!-- ── Per-dataset details modal (e.g. GLAD GLCLU classes) ─────────── -->
+<div id="details-modal" class="info-modal" onclick="hideDetailsModal(event)">
+  <div class="info-modal-card" onclick="event.stopPropagation()">
+    <button class="info-modal-close" onclick="hideDetailsModal()" aria-label="Close">&times;</button>
+    <div class="info-modal-body" id="details-modal-body">Loading&hellip;</div>
   </div>
 </div>
 
@@ -1258,8 +1273,28 @@ function hideDatasetsInfo(event){
     if(event&&event.target&&event.target.id&&event.target.id!=='info-modal')return;
     document.getElementById('info-modal').classList.remove('show');
 }
+var _detailsHtmlCache={};
+function showDetailsModal(mdPath){
+    var modal=document.getElementById('details-modal');
+    var body=document.getElementById('details-modal-body');
+    modal.classList.add('show');
+    if(_detailsHtmlCache[mdPath]){body.innerHTML=_detailsHtmlCache[mdPath];return;}
+    body.innerHTML='Loading&hellip;';
+    fetch(mdPath,{cache:'no-cache'})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+        .then(function(md){_detailsHtmlCache[mdPath]=marked.parse(md);body.innerHTML=_detailsHtmlCache[mdPath];})
+        .catch(function(err){body.innerHTML='<p style="color:#e74c3c">Failed to load '+mdPath+': '+String(err).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</p>';});
+}
+function showGladDetails(){showDetailsModal('/glad_glclu.md');}
+function showGlcDetails(){showDetailsModal('/glc_fcs30d.md');}
+function hideDetailsModal(event){
+    if(event&&event.target&&event.target.id&&event.target.id!=='details-modal')return;
+    document.getElementById('details-modal').classList.remove('show');
+}
 document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){
+        var d=document.getElementById('details-modal');
+        if(d&&d.classList.contains('show')){d.classList.remove('show');return;}
         var m=document.getElementById('info-modal');
         if(m&&m.classList.contains('show'))m.classList.remove('show');
     }
@@ -1295,17 +1330,17 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_query(parsed)
         elif parsed.path == "/api/stats":
             self._handle_stats_bbox(parsed)
-        elif parsed.path == "/datasets.md":
-            self._handle_datasets_md()
+        elif parsed.path in ("/datasets.md", "/glad_glclu.md", "/glc_fcs30d.md"):
+            self._handle_static_md(parsed.path.lstrip("/"))
         else:
             super().do_GET()
 
-    def _handle_datasets_md(self):
-        md_path = Path(__file__).resolve().parent / "cloud" / "frontend" / "datasets.md"
+    def _handle_static_md(self, filename):
+        md_path = Path(__file__).resolve().parent / "cloud" / "frontend" / filename
         try:
             body = md_path.read_bytes()
         except OSError as e:
-            self.send_error(404, f"datasets.md not found: {e}")
+            self.send_error(404, f"{filename} not found: {e}")
             return
         self.send_response(200)
         self.send_header("Content-Type", "text/markdown; charset=utf-8")

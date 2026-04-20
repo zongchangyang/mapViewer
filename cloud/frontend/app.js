@@ -989,8 +989,44 @@ function hideDatasetsInfo(event){
     document.getElementById('info-modal').classList.remove('show');
 }
 
+var _detailsHtmlCache = {};
+
+function showDetailsModal(mdPath){
+    var modal = document.getElementById('details-modal');
+    var body  = document.getElementById('details-modal-body');
+    modal.classList.add('show');
+    if (_detailsHtmlCache[mdPath]) {
+        body.innerHTML = _detailsHtmlCache[mdPath];
+        return;
+    }
+    body.innerHTML = 'Loading&hellip;';
+    fetch(mdPath, {cache:'no-cache'})
+        .then(function(r){
+            if(!r.ok) throw new Error('HTTP '+r.status);
+            return r.text();
+        })
+        .then(function(md){
+            _detailsHtmlCache[mdPath] = marked.parse(md);
+            body.innerHTML = _detailsHtmlCache[mdPath];
+        })
+        .catch(function(err){
+            body.innerHTML = '<p style="color:#e74c3c">Failed to load ' + mdPath + ': '
+                + escapeHtml(String(err)) + '</p>';
+        });
+}
+
+function showGladDetails(){ showDetailsModal('glad_glclu.md'); }
+function showGlcDetails(){ showDetailsModal('glc_fcs30d.md'); }
+
+function hideDetailsModal(event){
+    if (event && event.target && event.target.id && event.target.id !== 'details-modal') return;
+    document.getElementById('details-modal').classList.remove('show');
+}
+
 document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
+        var details = document.getElementById('details-modal');
+        if (details && details.classList.contains('show')) { details.classList.remove('show'); return; }
         var modal = document.getElementById('info-modal');
         if (modal && modal.classList.contains('show')) modal.classList.remove('show');
     }

@@ -55,11 +55,11 @@ highly detailed taxonomy of 113 classes organized by vegetation structural
 type and canopy height. It is produced using bagged decision tree ensembles
 trained on manually collected reference data, applied in a three-stage
 regional hierarchy. For this work, the 113 classes are aggregated into the
-ten harmonized categories.
+ten harmonized categories. <a href="#" class="dataset-details-link" onclick="showGladDetails();return false">&#9432; View class details</a>
 
 **GLC-FCS30D** (Zhang et al., 2024) is a 30 m Landsat-based product spanning
 1985–2022 at roughly five-year intervals. It combines the Continuous Change
 Detection (CCD) algorithm for time-series change detection with a
 local-adaptive Random Forest classifier applied within 5° × 5° geographic
 tiles. Its taxonomy distinguishes forest types, shrubland, grassland,
-wetland, and mangrove as separate categories.
+wetland, and mangrove as separate categories. <a href="#" class="dataset-details-link" onclick="showGlcDetails();return false">&#9432; View class details</a>

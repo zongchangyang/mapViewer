@@ -121,6 +121,14 @@
   </div>
 </div>
 
+<!-- Per-dataset details modal (e.g. GLAD GLCLU classes) -->
+<div id="details-modal" class="info-modal" onclick="hideDetailsModal(event)">
+  <div class="info-modal-card" onclick="event.stopPropagation()">
+    <button class="info-modal-close" onclick="hideDetailsModal()" aria-label="Close">&times;</button>
+    <div class="info-modal-body" id="details-modal-body">Loading&hellip;</div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>
