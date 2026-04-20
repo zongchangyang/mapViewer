@@ -114,28 +114,43 @@ function resolveDatasetKey(layerId){
     return entry ? entry.dataset_key : layerId;
 }
 
+var _class_lookup_cache = {};
+
+// {pixel_value: {name, color}} for a dataset. Grouped datasets resolve each
+// member value to its group; otherwise to the raw class.
+function getClassLookup(datasetKey){
+    if (_class_lookup_cache[datasetKey]) return _class_lookup_cache[datasetKey];
+    var ds = LABEL_MAPPING[datasetKey];
+    if (!ds) return null;
+    var lookup = {};
+    if (ds.groups) {
+        for (var i=0; i<ds.groups.length; i++) {
+            var g = ds.groups[i];
+            for (var j=0; j<g.members.length; j++) {
+                lookup[g.members[j]] = {name: g.name, color: g.color};
+            }
+        }
+    } else if (ds.classes) {
+        for (var i=0; i<ds.classes.length; i++) {
+            var c = ds.classes[i];
+            lookup[c.value] = {name: c.name, color: c.color};
+        }
+    }
+    _class_lookup_cache[datasetKey] = lookup;
+    return lookup;
+}
+
 // Sparse {pixel_value: [R,G,B,A]} — matches app.py build_colormap_dict
 function buildColormap(datasetKey){
     if (_colormap_cache[datasetKey]) return _colormap_cache[datasetKey];
-    var ds = LABEL_MAPPING[datasetKey];
-    if (!ds) return null;
+    var lookup = getClassLookup(datasetKey);
+    if (!lookup) return null;
     var cmap = {};
-    if (ds.simplified_groups) {
-        var sg = ds.simplified_groups;
-        for (var origStr in sg.group_mapping) {
-            var orig = parseInt(origStr, 10);
-            if (orig < 0 || orig > 255) continue;
-            var rgb = hexToRgb(sg.group_colors[sg.group_mapping[origStr]]);
-            cmap[orig] = [rgb[0], rgb[1], rgb[2], 255];
-        }
-    } else {
-        for (var origStr in ds.label_mapping) {
-            var orig = parseInt(origStr, 10);
-            var remappedIdx = ds.label_mapping[origStr];
-            if (orig < 0 || orig > 255 || remappedIdx >= ds.palette.length) continue;
-            var rgb = hexToRgb(ds.palette[remappedIdx]);
-            cmap[orig] = [rgb[0], rgb[1], rgb[2], 255];
-        }
+    for (var valStr in lookup) {
+        var val = parseInt(valStr, 10);
+        if (val < 0 || val > 255) continue;
+        var rgb = hexToRgb(lookup[valStr].color);
+        cmap[val] = [rgb[0], rgb[1], rgb[2], 255];
     }
     _colormap_cache[datasetKey] = cmap;
     return cmap;
@@ -146,18 +161,11 @@ function buildLegendData(){
     for (var key in LABEL_MAPPING) {
         if (key.charAt(0) === '_') continue;
         var ds = LABEL_MAPPING[key];
+        var items = ds.groups || ds.classes || [];
         var entries = [];
-        if (ds.simplified_groups) {
-            var sg = ds.simplified_groups;
-            for (var i=0; i<sg.group_names.length; i++) {
-                if (sg.group_names[i] === 'No Data') continue;
-                entries.push({name: sg.group_names[i], color: sg.group_colors[i]});
-            }
-        } else if (ds.class_names) {
-            for (var i=0; i<ds.class_names.length; i++) {
-                if (ds.class_names[i] === 'No Data') continue;
-                entries.push({name: ds.class_names[i], color: ds.palette[i]});
-            }
+        for (var i=0; i<items.length; i++) {
+            if (items[i].name === 'No Data') continue;
+            entries.push({name: items[i].name, color: items[i].color});
         }
         out[key] = {title: ds.name || key, entries: entries};
     }
@@ -188,26 +196,10 @@ function decodePixelValue(value, layerId){
         return {class_name: null, color: color, description: desc};
     }
     var datasetKey = resolveDatasetKey(layerId);
-    var ds = LABEL_MAPPING[datasetKey] || {};
-    if (ds.simplified_groups) {
-        var sg = ds.simplified_groups;
-        var gidx = sg.group_mapping[String(value)];
-        if (gidx !== undefined) {
-            return {class_name: sg.group_names[gidx], color: sg.group_colors[gidx]};
-        }
-        return {class_name: 'Unknown ('+value+')', color: '#000000'};
-    }
-    if (ds.label_mapping) {
-        var idx = ds.label_mapping[String(value)];
-        if (idx !== undefined && idx < (ds.class_names||[]).length) {
-            return {
-                class_name: ds.class_names[idx],
-                color: idx < (ds.palette||[]).length ? ds.palette[idx] : '#000000',
-            };
-        }
-        return {class_name: 'Unknown ('+value+')', color: '#000000'};
-    }
-    return {class_name: String(value), color: '#000000'};
+    var lookup = getClassLookup(datasetKey);
+    var entry = lookup && lookup[value];
+    if (entry) return {class_name: entry.name, color: entry.color};
+    return {class_name: 'Unknown ('+value+')', color: '#000000'};
 }
 
 // =====================================================================
@@ -794,7 +786,7 @@ function statsCategorical(b1, layerId, pixelAreaKm2, decimationFactor){
         rawClasses.push({value: val, name: decoded.class_name, color: decoded.color, count: count});
     }
 
-    // Merge duplicate names (simplified_groups maps many pixel values to one group)
+    // Merge duplicate names (groups map many pixel values to one group)
     var merged = {};
     for (var i=0; i<rawClasses.length; i++) {
         var c = rawClasses[i];

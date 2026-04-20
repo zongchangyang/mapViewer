@@ -42,10 +42,10 @@ All LULC rasters are single-band UInt8 COGs in EPSG:4326. Class names, palettes,
 | `dynamicworld` | Google/WRI | 10m | 2017-2025 | 9 | Near real-time LULC |
 | `esri_lulc` | Impact Observatory/ESA | 10m | 2017-2024 | 9 | Sentinel-2 derived |
 | `worldcover` | ESA | 10m | 2020-2021 | 12 | Non-sequential original values (10,20,...100) |
-| `glad_glclu` | UMD GLAD | 30m | 2020 | 113 full / 11 simplified | Use `simplified_groups` for display |
-| `glc_fcs30d` | Tsinghua University | 30m | 2019-2021 | 36 full / 13 simplified | Use `simplified_groups` for display |
+| `glad_glclu` | UMD GLAD | 30m | 2020 | 113 full / 11 simplified | Use `groups` for display |
+| `glc_fcs30d` | Tsinghua University | 30m | 2019-2021 | 36 full / 13 simplified | Use `groups` for display |
 
-**Important:** For `glad_glclu` and `glc_fcs30d`, always use the `simplified_groups` mapping from `dataset_label_mapping.json` for visualization. The full class sets are too granular for map legends.
+**Important:** For `glad_glclu` and `glc_fcs30d`, always use the `groups` array from `dataset_label_mapping.json` for visualization. The full class sets are too granular for map legends.
 
 ### Similarity Dataset (Continuous)
 
@@ -66,21 +66,24 @@ The JSON file is keyed by dataset type. Each entry provides:
 ```
 {
   "dataset_key": {
-    "label_mapping": { "original_pixel_value": remapped_index, ... },
-    "class_names": [ ... ],        // ordered by remapped index
-    "palette": [ "#hex", ... ],    // ordered by remapped index
-    "vis_params": { "min": N, "max": N },
-    "simplified_groups": { ... }   // only for glad_glclu and glc_fcs30d
+    "name": "...", "description": "...", "source": "...", "resolution": 10,
+    "classes": [
+      { "value": <raw_pixel_value>, "name": "...", "color": "#hex" },
+      ...
+    ],
+    "groups": [                               // only for glad_glclu and glc_fcs30d
+      { "name": "...", "color": "#hex", "members": [<raw_pixel_value>, ...] },
+      ...
+    ]
   }
 }
 ```
 
 When rendering a LULC tile:
 1. Read pixel value from the raster
-2. Look up `label_mapping[pixel_value]` to get the remapped index
-3. Use that index into `class_names` and `palette` for legend/color
+2. Look the value up directly in `classes` (or `groups.members` for grouped datasets) to get `name` and `color`
 
-For datasets with `simplified_groups`, use `simplified_groups.group_mapping[pixel_value]` to get the group index, then index into `group_names` and `group_colors`.
+For datasets with `groups`, the `groups` block takes precedence for display (legend, tile colorization, area stats): multiple raw values collapse into a single group with one name and color. The full per-class `classes` list is kept as reference metadata.
 
 ---
 
@@ -220,11 +223,9 @@ with open("dataset_label_mapping.json") as f:
 def get_legend_entries(dataset_key):
     """Return list of (class_name, hex_color) for the given dataset."""
     ds = mappings[dataset_key]
-    # Use simplified groups if available
-    if "simplified_groups" in ds:
-        sg = ds["simplified_groups"]
-        return list(zip(sg["group_names"], sg["group_colors"]))
-    return list(zip(ds["class_names"], ds["palette"]))
+    # Prefer groups when present; fall back to the full class list.
+    items = ds.get("groups") or ds["classes"]
+    return [(item["name"], item["color"]) for item in items]
 ```
 
 Inject the legend as an HTML overlay in the Leaflet map (absolute-positioned div).

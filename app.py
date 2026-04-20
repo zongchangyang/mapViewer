@@ -83,6 +83,7 @@ _file_registry = {}      # layer_id -> file_path
 _label_mappings = {}     # dataset_key -> mapping dict
 _tile_clients = {}       # layer_id -> TileClient (lazily created)
 _colormap_cache = {}     # dataset_key -> colormap dict
+_class_lookup_cache = {} # dataset_key -> {pixel_value: (name, color)}
 _external_ip = None      # set via --external-ip for GCP deployment
 _next_tile_port = DEFAULT_TILE_PORT_START
 
@@ -132,6 +133,30 @@ def hex_to_rgb(hex_color):
     return [int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)]
 
 
+def get_class_lookup(dataset_key):
+    """Return cached {pixel_value: (display_name, color)} for a dataset.
+
+    For grouped datasets (glad_glclu, glc_fcs30d) each member value resolves
+    to its group name/color; otherwise to the raw class name/color.
+    """
+    cached = _class_lookup_cache.get(dataset_key)
+    if cached is not None:
+        return cached
+
+    ds = _label_mappings.get(dataset_key, {})
+    lookup = {}
+    if "groups" in ds:
+        for g in ds["groups"]:
+            for v in g["members"]:
+                lookup[v] = (g["name"], g["color"])
+    else:
+        for cls in ds.get("classes", []):
+            lookup[cls["value"]] = (cls["name"], cls["color"])
+
+    _class_lookup_cache[dataset_key] = lookup
+    return lookup
+
+
 def build_colormap_dict(dataset_key):
     """Build sparse {pixel_value: [R,G,B,A]} dict for a categorical dataset."""
     if dataset_key in _colormap_cache:
@@ -140,19 +165,17 @@ def build_colormap_dict(dataset_key):
     ds = _label_mappings[dataset_key]
     cmap = {}
 
-    if "simplified_groups" in ds:
-        sg = ds["simplified_groups"]
-        for orig_str, group_idx in sg["group_mapping"].items():
-            orig = int(orig_str)
-            if 0 <= orig <= 255:
-                rgb = hex_to_rgb(sg["group_colors"][group_idx])
-                cmap[orig] = rgb + [255]
+    if "groups" in ds:
+        for g in ds["groups"]:
+            rgb = hex_to_rgb(g["color"])
+            for orig in g["members"]:
+                if 0 <= orig <= 255:
+                    cmap[orig] = rgb + [255]
     else:
-        for orig_str, remapped_idx in ds["label_mapping"].items():
-            orig = int(orig_str)
-            if 0 <= orig <= 255 and remapped_idx < len(ds["palette"]):
-                rgb = hex_to_rgb(ds["palette"][remapped_idx])
-                cmap[orig] = rgb + [255]
+        for cls in ds["classes"]:
+            orig = cls["value"]
+            if 0 <= orig <= 255:
+                cmap[orig] = hex_to_rgb(cls["color"]) + [255]
 
     _colormap_cache[dataset_key] = cmap
     return cmap
@@ -233,19 +256,12 @@ def build_legend_data():
         if key.startswith("_"):
             continue
 
-        if "simplified_groups" in ds:
-            sg = ds["simplified_groups"]
-            entries = [
-                {"name": n, "color": c}
-                for n, c in zip(sg["group_names"], sg["group_colors"])
-                if n != "No Data"
-            ]
-        else:
-            entries = []
-            for name, color in zip(ds["class_names"], ds["palette"]):
-                if name == "No Data":
-                    continue
-                entries.append({"name": name, "color": color})
+        items = ds.get("groups") or ds.get("classes", [])
+        entries = [
+            {"name": item["name"], "color": item["color"]}
+            for item in items
+            if item["name"] != "No Data"
+        ]
 
         legends[key] = {
             "title": ds.get("name", key),
@@ -1279,29 +1295,12 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
         else:
             # Categorical LULC
             dataset_key = resolve_dataset_key(layer_id)
-            ds = _label_mappings.get(dataset_key, {})
-
-            if "simplified_groups" in ds:
-                sg = ds["simplified_groups"]
-                gidx = sg["group_mapping"].get(str(val))
-                if gidx is not None:
-                    result["class_name"] = sg["group_names"][gidx]
-                    result["color"] = sg["group_colors"][gidx]
-                else:
-                    result["class_name"] = f"Unknown ({val})"
-                    result["color"] = "#000000"
-            elif "label_mapping" in ds:
-                idx = ds["label_mapping"].get(str(val))
-                if idx is not None and idx < len(ds["class_names"]):
-                    result["class_name"] = ds["class_names"][idx]
-                    result["color"] = (
-                        ds["palette"][idx] if idx < len(ds["palette"]) else "#000000"
-                    )
-                else:
-                    result["class_name"] = f"Unknown ({val})"
-                    result["color"] = "#000000"
+            lookup = get_class_lookup(dataset_key)
+            entry = lookup.get(int(val))
+            if entry is not None:
+                result["class_name"], result["color"] = entry
             else:
-                result["class_name"] = str(val)
+                result["class_name"] = f"Unknown ({val})"
                 result["color"] = "#000000"
 
         self._send_json(result)
@@ -1476,44 +1475,31 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
 
     def _stats_categorical(self, data, dataset_key, pixel_area_km2, decimation_factor=1):
         """Compute class distribution for categorical LULC data."""
-        ds = _label_mappings.get(dataset_key, {})
+        lookup = get_class_lookup(dataset_key)
         unique, counts = np.unique(data, return_counts=True)
         total = int(counts.sum())
 
-        classes = []
-        for val, count in sorted(zip(unique, counts), key=lambda x: -x[1]):
+        # Aggregate pixel counts by display name, since grouped datasets map
+        # multiple raw values to the same group.
+        merged = {}
+        for val, count in zip(unique, counts):
             val, count = int(val), int(count)
-
-            if "simplified_groups" in ds:
-                sg = ds["simplified_groups"]
-                gidx = sg["group_mapping"].get(str(val))
-                if gidx is not None:
-                    name = sg["group_names"][gidx]
-                    color = sg["group_colors"][gidx]
-                else:
-                    name, color = f"Unknown ({val})", "#000000"
-            elif "label_mapping" in ds:
-                idx = ds["label_mapping"].get(str(val))
-                if idx is not None and idx < len(ds.get("class_names", [])):
-                    name = ds["class_names"][idx]
-                    color = ds["palette"][idx] if idx < len(ds.get("palette", [])) else "#000000"
-                else:
-                    name, color = f"Unknown ({val})", "#000000"
+            entry = lookup.get(val)
+            if entry is None:
+                name, color = f"Unknown ({val})", "#000000"
             else:
-                name, color = str(val), "#000000"
+                name, color = entry
 
             if name == "No Data":
                 total -= count
                 continue
-            classes.append({"value": val, "name": name, "color": color, "count": count})
 
-        # Merge duplicate group names (simplified_groups maps multiple pixel values to one group)
-        merged = {}
-        for c in classes:
-            if c["name"] in merged:
-                merged[c["name"]]["count"] += c["count"]
+            existing = merged.get(name)
+            if existing is None:
+                merged[name] = {"value": val, "name": name, "color": color, "count": count}
             else:
-                merged[c["name"]] = dict(c)
+                existing["count"] += count
+
         classes = sorted(merged.values(), key=lambda x: -x["count"])
 
         for c in classes:

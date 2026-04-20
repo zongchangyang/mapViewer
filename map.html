@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+<script src="https://unpkg.com/@tmcw/togeojson@4/dist/togeojson.umd.js"></script>
+<script src="https://unpkg.com/jszip@3/dist/jszip.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
@@ -285,7 +287,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <button class="tool-btn" id="geojson-rect-btn" onclick="startGeoJSONDraw('rectangle')">Draw Rectangle</button>
       <button class="tool-btn" id="geojson-poly-btn" onclick="startGeoJSONDraw('polygon')">Draw Polygon</button>
       <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
-      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleFileUpload(this)">
+      <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleFileUpload(this)">
       <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
       <textarea class="geojson-textarea" id="geojson-output" readonly
                 placeholder="Draw a shape to see GeoJSON here..."></textarea>
@@ -305,7 +307,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <button class="tool-btn" id="stats-draw-btn" onclick="startStatsDraw('rect')">Draw Rectangle</button>
         <button class="tool-btn" id="stats-poly-btn" onclick="startStatsDraw('poly')">Draw Polygon</button>
         <button class="tool-btn" id="stats-upload-btn" onclick="document.getElementById('stats-file-input').click()">Upload File</button>
-        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp" style="display:none" onchange="handleStatsFileUpload(this)">
+        <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleStatsFileUpload(this)">
         <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
         <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">
           Computing statistics...
@@ -331,7 +333,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 // =====================================================================
 // Configuration (injected by Python)
 // =====================================================================
-var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Grass", "color": "#88B053"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Shrub and Scrub", "color": "#DFC35A"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow and Ice", "color": "#B39FE1"}]}, "worldcover": {"title": "ESA WorldCover v100", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#ffbb22"}, {"name": "Grassland", "color": "#ffff4c"}, {"name": "Cropland", "color": "#f096ff"}, {"name": "Built-up", "color": "#fa0000"}, {"name": "Bare/Sparse vegetation", "color": "#b4b4b4"}, {"name": "Snow and Ice", "color": "#f0f0f0"}, {"name": "Permanent Water Bodies", "color": "#0064c8"}, {"name": "Herbaceous Wetland", "color": "#0096a0"}, {"name": "Mangroves", "color": "#00cf75"}, {"name": "Moss and Lichen", "color": "#fae6a0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#FEFECC"}, {"name": "Semi-arid", "color": "#D7D769"}, {"name": "Dense Short Vegetation", "color": "#B0B006"}, {"name": "Tree Cover", "color": "#347834"}, {"name": "Wetland Vegetation", "color": "#64A3DB"}, {"name": "Wetland Trees", "color": "#3F8286"}, {"name": "Water", "color": "#0000BA"}, {"name": "Snow and Ice", "color": "#FFFFFF"}, {"name": "Cropland", "color": "#FF7D00"}, {"name": "Built-up", "color": "#64DCDC"}, {"name": "Ocean", "color": "#111133"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#419BDF"}, {"name": "Trees", "color": "#397D49"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#E49635"}, {"name": "Built Area", "color": "#C4281B"}, {"name": "Bare Ground", "color": "#A59B8F"}, {"name": "Snow/Ice", "color": "#B39FE1"}, {"name": "Clouds", "color": "#ffffff"}, {"name": "Rangeland", "color": "#DFC35A"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#FFBB22"}, {"name": "Forest", "color": "#009900"}, {"name": "Shrubland", "color": "#8DB400"}, {"name": "Grassland", "color": "#A0DC00"}, {"name": "Lichens and Mosses", "color": "#8D7400"}, {"name": "Sparse Vegetation", "color": "#929900"}, {"name": "Wetland", "color": "#0078FF"}, {"name": "Mangrove", "color": "#00CFA0"}, {"name": "Impervious Surfaces", "color": "#C31400"}, {"name": "Bare Areas", "color": "#DEC800"}, {"name": "Water", "color": "#0046C8"}, {"name": "Snow/Ice", "color": "#FFFFFF"}]}, "sunstone_kenya_lulc_9C": {"title": "Sunstone Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#d4b483"}, {"name": "Built Area", "color": "#e05c5c"}, {"name": "Cropland", "color": "#f5c842"}, {"name": "Flooded Vegetation", "color": "#5bd4d4"}, {"name": "Grassland", "color": "#a0d96b"}, {"name": "Mangroves", "color": "#2e8b57"}, {"name": "Shrubland", "color": "#c8a96e"}, {"name": "Trees", "color": "#228b22"}, {"name": "Water", "color": "#4169e1"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
+var LEGEND_DATA = {"dynamicworld": {"title": "Google Dynamic World", "entries": [{"name": "Water", "color": "#0064C8"}, {"name": "Trees", "color": "#006400"}, {"name": "Grass", "color": "#FFFF4C"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#F096FF"}, {"name": "Shrub and Scrub", "color": "#FFBB22"}, {"name": "Built Area", "color": "#FA0000"}, {"name": "Bare Ground", "color": "#B4B4B4"}, {"name": "Snow and Ice", "color": "#F0F0F0"}]}, "worldcover": {"title": "ESA WorldCover", "entries": [{"name": "Tree cover", "color": "#006400"}, {"name": "Shrubland", "color": "#FFBB22"}, {"name": "Grassland", "color": "#FFFF4C"}, {"name": "Cropland", "color": "#F096FF"}, {"name": "Built-up", "color": "#FA0000"}, {"name": "Bare/Sparse vegetation", "color": "#B4B4B4"}, {"name": "Snow and Ice", "color": "#F0F0F0"}, {"name": "Permanent Water Bodies", "color": "#0064C8"}, {"name": "Herbaceous Wetland", "color": "#0096A0"}, {"name": "Mangroves", "color": "#00CF75"}, {"name": "Moss and Lichen", "color": "#FAE6A0"}]}, "glad_glclu": {"title": "GLAD Global Land Cover and Land Use", "entries": [{"name": "True Desert", "color": "#F5E6B8"}, {"name": "Semi-arid", "color": "#FAF282"}, {"name": "Dense Short Vegetation", "color": "#FFFF4C"}, {"name": "Tree Cover", "color": "#006400"}, {"name": "Wetland Vegetation", "color": "#0096A0"}, {"name": "Wetland Trees", "color": "#00CF75"}, {"name": "Water", "color": "#0064C8"}, {"name": "Snow and Ice", "color": "#F0F0F0"}, {"name": "Cropland", "color": "#F096FF"}, {"name": "Built-up", "color": "#FA0000"}, {"name": "Ocean", "color": "#003E80"}]}, "esri_lulc": {"title": "Sentinel-2 10m Land Use/Land Cover", "entries": [{"name": "Water", "color": "#0064C8"}, {"name": "Trees", "color": "#006400"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Crops", "color": "#F096FF"}, {"name": "Built Area", "color": "#FA0000"}, {"name": "Bare Ground", "color": "#B4B4B4"}, {"name": "Snow/Ice", "color": "#F0F0F0"}, {"name": "Clouds", "color": "#FFFFFF"}, {"name": "Rangeland", "color": "#FFFF4C"}]}, "glc_fcs30d": {"title": "GLC_FCS30D Global Land Cover", "entries": [{"name": "Cropland", "color": "#F096FF"}, {"name": "Forest", "color": "#006400"}, {"name": "Shrubland", "color": "#FFBB22"}, {"name": "Grassland", "color": "#FFFF4C"}, {"name": "Lichens and Mosses", "color": "#FAE6A0"}, {"name": "Sparse Vegetation", "color": "#B4B4B4"}, {"name": "Wetland", "color": "#0096A0"}, {"name": "Mangrove", "color": "#00CF75"}, {"name": "Impervious Surfaces", "color": "#FA0000"}, {"name": "Bare Areas", "color": "#B4B4B4"}, {"name": "Water", "color": "#0064C8"}, {"name": "Snow/Ice", "color": "#F0F0F0"}]}, "sunstone_kenya_lulc_9C": {"title": "Sunstone Kenya Land Cover", "entries": [{"name": "Bare Ground", "color": "#B4B4B4"}, {"name": "Built Area", "color": "#FA0000"}, {"name": "Cropland", "color": "#F096FF"}, {"name": "Flooded Vegetation", "color": "#7A87C6"}, {"name": "Grassland", "color": "#FFFF4C"}, {"name": "Mangroves", "color": "#00CF75"}, {"name": "Shrubland", "color": "#FFBB22"}, {"name": "Trees", "color": "#006400"}, {"name": "Water", "color": "#0064C8"}]}, "similarity": {"title": "Land Change Similarity (2017 vs 2025)", "type": "continuous", "min_label": "No Change", "max_label": "High Change", "colors": ["#00ff00", "#ffff00", "#ff0000"]}};
 var DATASET_YEARS = {"sunstone_kenya_lulc_9C": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "dynamicworld": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "esri_lulc": [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017], "worldcover": [2021, 2020], "glad_glclu": [2020, 2015, 2010, 2005], "glc_fcs30d": [2022, 2020, 2015, 2010, 2005, 2000, 1995, 1990, 1985]};
 
 // =====================================================================
@@ -654,28 +656,54 @@ function saveGeoJSON(){
     a.click();
     URL.revokeObjectURL(a.href);
 }
+// Parse an uploaded geometry file into a GeoJSON object.
+// Supports: .json/.geojson, .zip/.shp (shapefile), .kml, .kmz.
+function parseGeoFile(file){
+    return new Promise(function(resolve,reject){
+        var name=file.name.toLowerCase();
+        var reader=new FileReader();
+        reader.onerror=function(){reject(new Error('Read failed'))};
+
+        if(name.endsWith('.zip')||name.endsWith('.shp')){
+            reader.onload=function(e){shp(e.target.result).then(resolve,reject)};
+            reader.readAsArrayBuffer(file);
+        } else if(name.endsWith('.kmz')){
+            reader.onload=function(e){
+                JSZip.loadAsync(e.target.result).then(function(zip){
+                    var kmlName=Object.keys(zip.files).find(function(n){
+                        return !zip.files[n].dir && n.toLowerCase().endsWith('.kml');
+                    });
+                    if(!kmlName) return reject(new Error('No .kml inside .kmz'));
+                    return zip.files[kmlName].async('text').then(function(kmlText){
+                        var dom=new DOMParser().parseFromString(kmlText,'text/xml');
+                        resolve(toGeoJSON.kml(dom));
+                    });
+                }).catch(reject);
+            };
+            reader.readAsArrayBuffer(file);
+        } else if(name.endsWith('.kml')){
+            reader.onload=function(e){
+                try{
+                    var dom=new DOMParser().parseFromString(e.target.result,'text/xml');
+                    resolve(toGeoJSON.kml(dom));
+                }catch(err){reject(err)}
+            };
+            reader.readAsText(file);
+        } else {
+            reader.onload=function(e){
+                try{resolve(JSON.parse(e.target.result))}
+                catch(err){reject(err)}
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
 function handleFileUpload(input){
     if(!input.files||!input.files[0]) return;
-    var file=input.files[0];
-    var name=file.name.toLowerCase();
-    if(name.endsWith('.zip')||name.endsWith('.shp')){
-        var reader=new FileReader();
-        reader.onload=function(e){
-            shp(e.target.result).then(function(geojson){
-                displayGeoJSON(geojson);
-            }).catch(function(err){alert('Failed to parse shapefile: '+err)});
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        var reader=new FileReader();
-        reader.onload=function(e){
-            try{
-                var geojson=JSON.parse(e.target.result);
-                displayGeoJSON(geojson);
-            }catch(err){alert('Failed to parse GeoJSON: '+err)}
-        };
-        reader.readAsText(file);
-    }
+    parseGeoFile(input.files[0])
+        .then(displayGeoJSON)
+        .catch(function(err){alert('Failed to parse file: '+err)});
     input.value='';
 }
 function displayGeoJSON(geojson){
@@ -739,26 +767,9 @@ function clearStatsRect(){
 }
 function handleStatsFileUpload(input){
     if(!input.files||!input.files[0]||!activeOverlay) return;
-    var file=input.files[0];
-    var name=file.name.toLowerCase();
-    if(name.endsWith('.zip')||name.endsWith('.shp')){
-        var reader=new FileReader();
-        reader.onload=function(e){
-            shp(e.target.result).then(function(geojson){
-                applyStatsGeometry(geojson);
-            }).catch(function(err){alert('Failed to parse shapefile: '+err)});
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        var reader=new FileReader();
-        reader.onload=function(e){
-            try{
-                var geojson=JSON.parse(e.target.result);
-                applyStatsGeometry(geojson);
-            }catch(err){alert('Failed to parse GeoJSON: '+err)}
-        };
-        reader.readAsText(file);
-    }
+    parseGeoFile(input.files[0])
+        .then(applyStatsGeometry)
+        .catch(function(err){alert('Failed to parse file: '+err)});
     input.value='';
 }
 function applyStatsGeometry(geojson){
@@ -826,6 +837,10 @@ function renderStatsResults(data){
     var el=document.getElementById('stats-results');
     var html='<div style="margin-bottom:6px;color:#aaa;font-size:.85em">Total area: '
         +fmtArea(data.total_area_km2)+'</div>';
+    if(data.decimation_factor && data.decimation_factor>1){
+        html+='<div style="color:#888;font-size:.75em;font-style:italic;margin-bottom:6px">'
+            +'(estimated at 1/'+data.decimation_factor+'x resolution)</div>';
+    }
     if(data.type==='categorical'){
         for(var i=0;i<data.classes.length;i++){
             var c=data.classes[i];

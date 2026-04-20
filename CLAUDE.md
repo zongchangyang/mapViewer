@@ -50,7 +50,7 @@ Key data flow: user clicks sidebar -> JS calls `/api/activate` -> Python creates
 ## Key Conventions
 
 - **All class definitions** (names, palettes, label mappings) live in `dataset_label_mapping.json`. Never hardcode class names or colors in code.
-- **Datasets with `simplified_groups`** (`glad_glclu`, `glc_fcs30d`) must use group mappings for display, not the full 100+ class sets.
+- **Datasets with a `groups` array** (`glad_glclu`, `glc_fcs30d`) must use groups for display, not the full 100+ class sets.
 - **Categorical rasters** use nearest-neighbor resampling (MODE) and UInt8. **Continuous rasters** (similarity) use bilinear/AVERAGE and UInt16.
 - **COG file naming**: `{dataset_key}_{year}_cog.tif`. Do not rename data files.
 - **All rasters must be EPSG:4326.**
