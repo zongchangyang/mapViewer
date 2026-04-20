@@ -956,6 +956,46 @@ map.on('draw:created', function(e){
     }
 });
 
+// =====================================================================
+// About the Datasets modal
+// =====================================================================
+var _datasetsInfoHtml = null;
+
+function showDatasetsInfo(){
+    var modal = document.getElementById('info-modal');
+    var body  = document.getElementById('info-modal-body');
+    modal.classList.add('show');
+    if (_datasetsInfoHtml !== null) {
+        body.innerHTML = _datasetsInfoHtml;
+        return;
+    }
+    fetch('datasets.md', {cache:'no-cache'})
+        .then(function(r){
+            if(!r.ok) throw new Error('HTTP '+r.status);
+            return r.text();
+        })
+        .then(function(md){
+            _datasetsInfoHtml = marked.parse(md);
+            body.innerHTML = _datasetsInfoHtml;
+        })
+        .catch(function(err){
+            body.innerHTML = '<p style="color:#e74c3c">Failed to load datasets.md: '
+                + escapeHtml(String(err)) + '</p>';
+        });
+}
+
+function hideDatasetsInfo(event){
+    if (event && event.target && event.target.id && event.target.id !== 'info-modal') return;
+    document.getElementById('info-modal').classList.remove('show');
+}
+
+document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+        var modal = document.getElementById('info-modal');
+        if (modal && modal.classList.contains('show')) modal.classList.remove('show');
+    }
+});
+
 setTimeout(function(){map.invalidateSize()}, 200);
 
 // Kick off

@@ -323,6 +323,7 @@ def generate_html(datasets, legend_data):
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 <script src="https://unpkg.com/@tmcw/togeojson@4/dist/togeojson.umd.js"></script>
 <script src="https://unpkg.com/jszip@3/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@11/marked.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
@@ -371,6 +372,12 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 }
 .basemap-option:hover{background:#2a2a4a;color:#fff}
 .basemap-option.active{color:#00d2ff}
+.about-item{
+  padding:8px 20px;cursor:pointer;font-size:.9em;color:#aaa;
+  transition:all .15s;display:flex;align-items:center;gap:8px;
+}
+.about-item:hover{background:#2a2a4a;color:#00d2ff}
+.about-item .about-icon{font-size:1.1em;color:#00d2ff;flex-shrink:0}
 .opacity-section{padding:12px 20px}
 .opacity-section label{font-size:.85em;color:#aaa}
 .opacity-section input[type=range]{width:100%;margin-top:6px;accent-color:#00d2ff}
@@ -458,6 +465,54 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 }
 .loading-overlay.show{display:block}
 
+/* ── Datasets info modal ────────────────────────────────────────────── */
+.info-modal{
+  display:none;position:fixed;inset:0;z-index:3000;
+  background:rgba(0,0,0,.6);align-items:center;justify-content:center;
+  padding:24px;
+}
+.info-modal.show{display:flex}
+.info-modal-card{
+  position:relative;background:#1a1a2e;color:#e0e0e0;
+  border:1px solid #2a2a4a;border-radius:8px;
+  max-width:820px;width:100%;max-height:85vh;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);display:flex;flex-direction:column;
+}
+.info-modal-close{
+  position:absolute;top:10px;right:14px;background:transparent;
+  border:none;color:#888;font-size:1.8em;line-height:1;cursor:pointer;
+  padding:4px 10px;border-radius:4px;transition:all .15s;z-index:1;
+}
+.info-modal-close:hover{color:#00d2ff;background:#2a2a4a}
+.info-modal-body{
+  padding:28px 36px;overflow-y:auto;font-size:.95em;line-height:1.6;
+}
+.info-modal-body h1{
+  font-size:1.5em;color:#00d2ff;margin:0 0 16px;
+  padding-bottom:8px;border-bottom:1px solid #2a2a4a;
+}
+.info-modal-body h2{font-size:1.15em;color:#00d2ff;margin:20px 0 10px}
+.info-modal-body h3{
+  font-size:1em;color:#e0e0e0;margin:16px 0 8px;
+  text-transform:none;letter-spacing:0;padding:0;
+}
+.info-modal-body p{margin:0 0 12px}
+.info-modal-body strong{color:#fff}
+.info-modal-body a{color:#00d2ff;text-decoration:underline}
+.info-modal-body table{
+  width:100%;border-collapse:collapse;margin:12px 0;font-size:.88em;
+}
+.info-modal-body th,.info-modal-body td{
+  padding:6px 10px;border:1px solid #2a2a4a;text-align:left;
+}
+.info-modal-body th{background:#12122a;color:#00d2ff;font-weight:600}
+.info-modal-body tr:nth-child(even) td{background:#12122a}
+.info-modal-body code{
+  background:#12122a;color:#00d2ff;padding:2px 5px;
+  border-radius:3px;font-size:.9em;
+}
+.info-modal-body ul,.info-modal-body ol{margin:0 0 12px 24px}
+
 /* ── Pixel popup ────────────────────────────────────────────────────── */
 .pixel-info{font-size:13px;line-height:1.6}
 .pixel-info .pi-class{font-weight:600}
@@ -473,6 +528,12 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
 <div id="sidebar">
   <h1>KenyaMap</h1>
+
+  <div class="sidebar-section">
+    <div class="about-item" onclick="showDatasetsInfo()">
+      <span class="about-icon">&#9432;</span> About the Datasets
+    </div>
+  </div>
 
   <div class="sidebar-section">
     <h3>Basemap</h3>
@@ -569,6 +630,14 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 </div>
 
 </div><!-- /container -->
+
+<!-- ── Datasets info modal ──────────────────────────────────────────── -->
+<div id="info-modal" class="info-modal" onclick="hideDatasetsInfo(event)">
+  <div class="info-modal-card" onclick="event.stopPropagation()">
+    <button class="info-modal-close" onclick="hideDatasetsInfo()" aria-label="Close">&times;</button>
+    <div class="info-modal-body" id="info-modal-body">Loading&hellip;</div>
+  </div>
+</div>
 
 <script>
 // =====================================================================
@@ -1171,6 +1240,31 @@ map.on('draw:created', function(e){
     }
 });
 
+// =====================================================================
+// About the Datasets modal
+// =====================================================================
+var _datasetsInfoHtml=null;
+function showDatasetsInfo(){
+    var modal=document.getElementById('info-modal');
+    var body=document.getElementById('info-modal-body');
+    modal.classList.add('show');
+    if(_datasetsInfoHtml!==null){body.innerHTML=_datasetsInfoHtml;return;}
+    fetch('/datasets.md',{cache:'no-cache'})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+        .then(function(md){_datasetsInfoHtml=marked.parse(md);body.innerHTML=_datasetsInfoHtml;})
+        .catch(function(err){body.innerHTML='<p style="color:#e74c3c">Failed to load datasets.md: '+String(err).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</p>';});
+}
+function hideDatasetsInfo(event){
+    if(event&&event.target&&event.target.id&&event.target.id!=='info-modal')return;
+    document.getElementById('info-modal').classList.remove('show');
+}
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+        var m=document.getElementById('info-modal');
+        if(m&&m.classList.contains('show'))m.classList.remove('show');
+    }
+});
+
 // Make sure map fills its container
 setTimeout(function(){map.invalidateSize()}, 200);
 </script>
@@ -1201,8 +1295,24 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_query(parsed)
         elif parsed.path == "/api/stats":
             self._handle_stats_bbox(parsed)
+        elif parsed.path == "/datasets.md":
+            self._handle_datasets_md()
         else:
             super().do_GET()
+
+    def _handle_datasets_md(self):
+        md_path = Path(__file__).resolve().parent / "cloud" / "frontend" / "datasets.md"
+        try:
+            body = md_path.read_bytes()
+        except OSError as e:
+            self.send_error(404, f"datasets.md not found: {e}")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/markdown; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_POST(self):
         parsed = urlparse(self.path)
