@@ -17,11 +17,11 @@ pipeline.
 | Dataset | Resolution | Temporal coverage | Sensor basis | Reference |
 |---|---|---|---|---|
 | Sunstone Kenya LULC | 10 m | 2017–2025 | AlphaEarth Embeddings | This work |
-| Google Dynamic World | 10 m | 2015–present | Sentinel-2 | Brown et al., 2022 |
-| ESRI LULC | 10 m | 2017–2024 | Sentinel-2 | Karra et al., 2021 |
-| ESA WorldCover | 10 m | 2020–2021 | Sentinel-1/2 | Zanaga et al., 2022 |
-| GLAD GLCLU | 30 m | 2000–2020 | Landsat | Potapov et al., 2022 |
-| GLC-FCS30D | 30 m | 1985–2022 | Landsat | Zhang et al., 2024 |
+| Google Dynamic World | 10 m | 2015–present | Sentinel-2 | [Brown et al., 2022](https://www.nature.com/articles/s41597-022-01307-4) |
+| ESRI LULC | 10 m | 2017–2024 | Sentinel-2 | [Karra et al., 2021](https://ieeexplore.ieee.org/document/9553499) |
+| ESA WorldCover | 10 m | 2020–2021 | Sentinel-1/2 | [Zanaga et al., 2022](https://doi.org/10.5281/zenodo.7254221) |
+| GLAD GLCLU | 30 m | 2000–2020 | Landsat | [Potapov et al., 2022](https://www.frontiersin.org/articles/10.3389/frsen.2022.856903/full) |
+| GLC-FCS30D | 30 m | 1985–2022 | Landsat | [Zhang et al., 2024](https://essd.copernicus.org/articles/16/1353/2024/) |
 
 ## 3 Per-dataset descriptions
 

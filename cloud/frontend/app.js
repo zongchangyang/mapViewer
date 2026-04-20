@@ -959,6 +959,15 @@ map.on('draw:created', function(e){
 // =====================================================================
 // About the Datasets modal
 // =====================================================================
+function renderMd(md){
+    var html = marked.parse(md);
+    // Open external links in a new tab. Internal href="#" handlers (details icons) stay untouched.
+    return html.replace(/<a\b([^>]*?)href="(https?:[^"]+)"([^>]*)>/g, function(m, before, url, after){
+        if (/\btarget=/.test(m)) return m;
+        return '<a' + before + 'href="' + url + '" target="_blank" rel="noopener noreferrer"' + after + '>';
+    });
+}
+
 var _datasetsInfoHtml = null;
 
 function showDatasetsInfo(){
@@ -975,7 +984,7 @@ function showDatasetsInfo(){
             return r.text();
         })
         .then(function(md){
-            _datasetsInfoHtml = marked.parse(md);
+            _datasetsInfoHtml = renderMd(md);
             body.innerHTML = _datasetsInfoHtml;
         })
         .catch(function(err){
@@ -1006,7 +1015,7 @@ function showDetailsModal(mdPath){
             return r.text();
         })
         .then(function(md){
-            _detailsHtmlCache[mdPath] = marked.parse(md);
+            _detailsHtmlCache[mdPath] = renderMd(md);
             body.innerHTML = _detailsHtmlCache[mdPath];
         })
         .catch(function(err){

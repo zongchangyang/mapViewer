@@ -1017,6 +1017,14 @@ map.on('draw:created', function(e){
 // =====================================================================
 // About the Datasets modal
 // =====================================================================
+function renderMd(md){
+    var html=marked.parse(md);
+    // Open external links in a new tab. Internal href="#" handlers (details icons) stay untouched.
+    return html.replace(/<a\b([^>]*?)href="(https?:[^"]+)"([^>]*)>/g,function(m,before,url,after){
+        if(/\btarget=/.test(m))return m;
+        return '<a'+before+'href="'+url+'" target="_blank" rel="noopener noreferrer"'+after+'>';
+    });
+}
 var _datasetsInfoHtml=null;
 function showDatasetsInfo(){
     var modal=document.getElementById('info-modal');
@@ -1025,7 +1033,7 @@ function showDatasetsInfo(){
     if(_datasetsInfoHtml!==null){body.innerHTML=_datasetsInfoHtml;return;}
     fetch('/datasets.md',{cache:'no-cache'})
         .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
-        .then(function(md){_datasetsInfoHtml=marked.parse(md);body.innerHTML=_datasetsInfoHtml;})
+        .then(function(md){_datasetsInfoHtml=renderMd(md);body.innerHTML=_datasetsInfoHtml;})
         .catch(function(err){body.innerHTML='<p style="color:#e74c3c">Failed to load datasets.md: '+String(err).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</p>';});
 }
 function hideDatasetsInfo(event){
@@ -1041,7 +1049,7 @@ function showDetailsModal(mdPath){
     body.innerHTML='Loading&hellip;';
     fetch(mdPath,{cache:'no-cache'})
         .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
-        .then(function(md){_detailsHtmlCache[mdPath]=marked.parse(md);body.innerHTML=_detailsHtmlCache[mdPath];})
+        .then(function(md){_detailsHtmlCache[mdPath]=renderMd(md);body.innerHTML=_detailsHtmlCache[mdPath];})
         .catch(function(err){body.innerHTML='<p style="color:#e74c3c">Failed to load '+mdPath+': '+String(err).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</p>';});
 }
 function showGladDetails(){showDetailsModal('/glad_glclu.md');}
