@@ -572,6 +572,19 @@ function handleFileUpload(input){
     input.value = '';
 }
 
+// Fetch the bundled Kenya country outline and route it to either the
+// GeoJSON Import/Export or Area Statistics pipeline.
+function loadKenya(target){
+    if (target === 'stats' && !activeOverlay) return;
+    fetch('gadm41_KEN_0.json')
+        .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(gj){
+            if (target === 'stats') applyStatsGeometry(gj);
+            else displayGeoJSON(gj);
+        })
+        .catch(function(err){ alert('Failed to load Kenya outline: ' + err); });
+}
+
 function displayGeoJSON(geojson){
     clearGeoJSON();
     geojsonLayer = L.geoJSON(geojson, {

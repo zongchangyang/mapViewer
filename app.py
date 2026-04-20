@@ -597,6 +597,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <button class="tool-btn" id="geojson-poly-btn" onclick="startGeoJSONDraw('polygon')">Draw Polygon</button>
       <button class="tool-btn" id="geojson-upload-btn" onclick="document.getElementById('geojson-file-input').click()">Upload File</button>
       <input type="file" id="geojson-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleFileUpload(this)">
+      <button class="tool-btn" id="geojson-kenya-btn" onclick="loadKenya('geojson')">Kenya</button>
       <button class="tool-btn" id="geojson-clear-btn" onclick="clearGeoJSON()" style="display:none">Clear</button>
       <textarea class="geojson-textarea" id="geojson-output" readonly
                 placeholder="Draw a shape to see GeoJSON here..."></textarea>
@@ -617,6 +618,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <button class="tool-btn" id="stats-poly-btn" onclick="startStatsDraw('poly')">Draw Polygon</button>
         <button class="tool-btn" id="stats-upload-btn" onclick="document.getElementById('stats-file-input').click()">Upload File</button>
         <input type="file" id="stats-file-input" accept=".json,.geojson,.zip,.shp,.kml,.kmz" style="display:none" onchange="handleStatsFileUpload(this)">
+        <button class="tool-btn" id="stats-kenya-btn" onclick="loadKenya('stats')">Kenya</button>
         <button class="tool-btn" id="stats-clear-btn" onclick="clearStatsRect()" style="display:none">Clear</button>
         <div id="stats-loading" style="display:none;color:#888;font-size:.8em;margin-top:8px">
           Computing statistics...
@@ -1030,6 +1032,19 @@ function handleFileUpload(input){
         .then(displayGeoJSON)
         .catch(function(err){alert('Failed to parse file: '+err)});
     input.value='';
+}
+
+// Fetch the bundled Kenya country outline and route it to either the
+// GeoJSON Import/Export or Area Statistics pipeline.
+function loadKenya(target){
+    if(target==='stats' && !activeOverlay) return;
+    fetch('gadm41_KEN_0.json')
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(function(gj){
+            if(target==='stats') applyStatsGeometry(gj);
+            else displayGeoJSON(gj);
+        })
+        .catch(function(err){alert('Failed to load Kenya outline: '+err)});
 }
 function displayGeoJSON(geojson){
     clearGeoJSON();
@@ -1588,15 +1603,17 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
 
                 data = src.read(1, window=window, out_shape=(out_h, out_w))
 
-                # Rasterize the polygon(s) onto the same decimated grid so pixels
-                # outside the geometry become 0 (matches the prior rasterio.mask
-                # nodata=0 semantic).
+                # Rasterize polygon onto the same decimated grid and KEEP ONLY
+                # pixels inside. Crucial: we cannot fill outside pixels with a
+                # sentinel (like 0), because for categorical rasters 0 is often
+                # a real class ("Bare Ground" in Sunstone) — those sentinel pixels
+                # would inflate class counts and the reported total area.
                 win_tf = src.window_transform(window)
                 dec_tf = Affine(win_tf.a * d, 0, win_tf.c,
                                 0, win_tf.e * d, win_tf.f)
                 mask = geometry_mask(geom_jsons, out_shape=(out_h, out_w),
                                      transform=dec_tf, invert=True)
-                data = np.where(mask, data, 0)
+                data = data[mask]  # flat 1D array of inside-polygon values
 
                 # Pixel area in km² — scale up by d² since each output pixel now
                 # covers d×d native pixels.
