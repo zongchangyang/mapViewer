@@ -414,12 +414,12 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 .tool-btn{
   display:inline-block;padding:6px 14px;margin:4px 2px;
   background:#0f3460;color:#00d2ff;border:1px solid #00d2ff;
-  border-radius:4px;cursor:pointer;font-size:.8em;transition:background .2s;
+  border-radius:4px;cursor:pointer;font-size:.85em;transition:background .2s;
 }
 .tool-btn:hover{background:#1a5276}
 .tool-btn.active{background:#00d2ff;color:#1a1a2e}
 .tool-btn:disabled{opacity:.4;cursor:not-allowed}
-.stats-results{margin-top:10px;font-size:.8em}
+.stats-results{margin-top:10px;font-size:.85em}
 .stats-row{display:flex;align-items:center;padding:3px 0;gap:6px}
 .stats-swatch{
   width:14px;height:14px;border-radius:2px;flex-shrink:0;
@@ -431,7 +431,7 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   border:1px solid #2a2a4a;border-radius:4px;font-family:monospace;
   font-size:.75em;padding:8px;resize:vertical;margin-top:8px;
 }
-.no-layer-msg{color:#666;font-size:.8em;font-style:italic}
+.no-layer-msg{color:#666;font-size:.85em;font-style:italic}
 
 /* ── Map ────────────────────────────────────────────────────────────── */
 #map{flex:1;z-index:1}
@@ -442,8 +442,8 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   box-shadow:0 2px 8px rgba(0,0,0,.3);max-height:400px;overflow-y:auto;
   min-width:160px;
 }
-.legend-control h4{margin:0 0 8px;font-size:.85em;color:#333}
-.legend-entry{display:flex;align-items:center;margin:3px 0;font-size:.8em;color:#444}
+.legend-control h4{margin:0 0 8px;font-size:.9em;color:#333}
+.legend-entry{display:flex;align-items:center;margin:3px 0;font-size:.85em;color:#444}
 .legend-swatch{
   width:16px;height:16px;border-radius:2px;margin-right:8px;
   flex-shrink:0;border:1px solid rgba(0,0,0,.15);
