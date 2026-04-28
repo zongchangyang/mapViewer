@@ -1052,6 +1052,7 @@ function showSunstoneDetails(){ showDetailsModal('sunstone_kenya_lulc_9C.md'); }
 function showDynamicWorldDetails(){ showDetailsModal('dynamicworld.md'); }
 function showEsriDetails(){ showDetailsModal('esri_lulc.md'); }
 function showWorldCoverDetails(){ showDetailsModal('worldcover.md'); }
+function showResolveEcoregionsDetails(){ showDetailsModal('resolve_ecoregions.md'); }
 
 function hideDetailsModal(event){
     if (event && event.target && event.target.id && event.target.id !== 'details-modal') return;

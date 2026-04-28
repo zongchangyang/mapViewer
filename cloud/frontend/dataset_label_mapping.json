@@ -273,6 +273,33 @@
       { "value": 8, "name": "Water", "color": "#0064C8" }
     ]
   },
+  "resolve_ecoregions": {
+    "name": "RESOLVE Ecoregions",
+    "description": "RESOLVE Ecoregions 2017 — terrestrial ecoregions of the world (846 globally, 17 present in Kenya)",
+    "source": "RESOLVE / Dinerstein et al. 2017 (BioScience)",
+    "resolution": 250,
+    "years_available": "2017",
+    "classes": [
+      { "value": 0, "name": "No Data", "color": "#000000" },
+      { "value": 8, "name": "East African montane forests", "color": "#13ED00" },
+      { "value": 9, "name": "Eastern Arc forests", "color": "#267400" },
+      { "value": 12, "name": "Ethiopian montane forests", "color": "#4DE600" },
+      { "value": 25, "name": "Northern Swahili coastal forests", "color": "#70A800" },
+      { "value": 42, "name": "Dry miombo woodlands", "color": "#FD965B" },
+      { "value": 43, "name": "East Sudanian savanna", "color": "#E0B51B" },
+      { "value": 50, "name": "Masai xeric grasslands and shrublands", "color": "#FFAA01" },
+      { "value": 51, "name": "Northern Acacia-Commiphora bushlands and thickets", "color": "#DBDB00" },
+      { "value": 54, "name": "Serengeti volcanic grasslands", "color": "#D9FB4C" },
+      { "value": 55, "name": "Somali Acacia-Commiphora bushlands and thickets", "color": "#FCD135" },
+      { "value": 57, "name": "Southern Acacia-Commiphora bushlands and thickets", "color": "#D68A00" },
+      { "value": 61, "name": "Victoria Basin forest-savanna", "color": "#66FC43" },
+      { "value": 69, "name": "East African halophytics", "color": "#C3E8FA" },
+      { "value": 76, "name": "Zambezian flooded grasslands", "color": "#6A89A6" },
+      { "value": 78, "name": "East African montane moorlands", "color": "#882AC8" },
+      { "value": 79, "name": "Ethiopian montane grasslands and woodlands", "color": "#B57454" },
+      { "value": 112, "name": "East African mangroves", "color": "#E600AA" }
+    ]
+  },
   "_canonical_palette": {
     "trees": "#006400",
     "shrubland": "#FFBB22",

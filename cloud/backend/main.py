@@ -62,6 +62,12 @@ DATASET_REGISTRY = {
         "available_years": [2022, 2021, 2020, 2019, 2015, 2010, 2005, 2000, 1995, 1990, 1985],
         "resolution_m": 30,
     },
+    "resolve_ecoregions": {
+        "display_name": "RESOLVE Ecoregions",
+        "file_template": "resolve_ecoregions_{year}_cog.tif",
+        "available_years": [2017],
+        "resolution_m": 10,
+    },
 }
 
 SIMILARITY_FILE = "alphaearth_similarity_2017_2025_30m_uint16_cog.tif"

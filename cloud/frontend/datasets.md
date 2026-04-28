@@ -22,6 +22,9 @@ pipeline.
 | ESA WorldCover | 10 m | 2020–2021 | Sentinel-1/2 | [Zanaga et al., 2022](https://doi.org/10.5281/zenodo.7254221) |
 | GLAD GLCLU | 30 m | 2000–2020 | Landsat | [Potapov et al., 2022](https://www.frontiersin.org/articles/10.3389/frsen.2022.856903/full) |
 | GLC-FCS30D | 30 m | 1985–2022 | Landsat | [Zhang et al., 2024](https://essd.copernicus.org/articles/16/1353/2024/) |
+| RESOLVE Ecoregions † | 250 m source / 10 m raster | 2017 | Vector polygons | [Dinerstein et al., 2017](https://academic.oup.com/bioscience/article/67/6/534/3102935) |
+
+† Reference ecoregion layer (not a land cover product); included for biogeographic context only.
 
 ## 3 Per-dataset descriptions
 
@@ -63,3 +66,14 @@ Detection (CCD) algorithm for time-series change detection with a
 local-adaptive Random Forest classifier applied within 5° × 5° geographic
 tiles. Its taxonomy distinguishes forest types, shrubland, grassland,
 wetland, and mangrove as separate categories. <a href="#" class="dataset-details-link" onclick="showGlcDetails();return false">&#9432; View class details</a>
+
+## 4 Reference layer
+
+**RESOLVE Ecoregions 2017** (Dinerstein et al., 2017) is a global biogeographic
+reference layer rather than a land cover product. It partitions the terrestrial
+realm into 846 ecoregions grouped under 14 biomes; 17 ecoregions across 5
+biomes are present within Kenya, ranging from East African montane forests to
+Somali Acacia-Commiphora bushlands and the East African mangroves. The layer
+is included here for biogeographic context — it is not used as a label source
+for the consensus pipeline. Colors and names follow the official RESOLVE
+attribute table. <a href="#" class="dataset-details-link" onclick="showResolveEcoregionsDetails();return false">&#9432; View class details</a>

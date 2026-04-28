@@ -71,6 +71,11 @@ DATASET_REGISTRY = {
         "file_template": "glc_fcs30d_{year}_cog.tif",
         "available_years": [2022, 2020, 2015, 2010, 2005, 2000, 1995, 1990, 1985],
     },
+    "resolve_ecoregions": {
+        "display_name": "RESOLVE Ecoregions",
+        "file_template": "resolve_ecoregions_{year}_cog.tif",
+        "available_years": [2017],
+    },
 }
 
 SIMILARITY_FILE = "alphaearth_similarity_2017_2025_30m_uint16_cog.tif"
@@ -1327,6 +1332,7 @@ function showSunstoneDetails(){showDetailsModal('/sunstone_kenya_lulc_9C.md');}
 function showDynamicWorldDetails(){showDetailsModal('/dynamicworld.md');}
 function showEsriDetails(){showDetailsModal('/esri_lulc.md');}
 function showWorldCoverDetails(){showDetailsModal('/worldcover.md');}
+function showResolveEcoregionsDetails(){showDetailsModal('/resolve_ecoregions.md');}
 function hideDetailsModal(event){
     if(event&&event.target&&event.target.id&&event.target.id!=='details-modal')return;
     document.getElementById('details-modal').classList.remove('show');
@@ -1373,7 +1379,7 @@ class MapHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed.path in (
             "/datasets.md", "/glad_glclu.md", "/glc_fcs30d.md",
             "/sunstone_kenya_lulc_9C.md", "/dynamicworld.md",
-            "/esri_lulc.md", "/worldcover.md",
+            "/esri_lulc.md", "/worldcover.md", "/resolve_ecoregions.md",
         ):
             self._handle_static_md(parsed.path.lstrip("/"))
         else:
