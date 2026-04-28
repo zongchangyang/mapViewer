@@ -72,7 +72,7 @@ DATASET_REGISTRY = {
         "available_years": [2022, 2020, 2015, 2010, 2005, 2000, 1995, 1990, 1985],
     },
     "resolve_ecoregions": {
-        "display_name": "RESOLVE Ecoregions",
+        "display_name": "WWF/RESOLVE Ecoregions",
         "file_template": "resolve_ecoregions_{year}_cog.tif",
         "available_years": [2017],
     },

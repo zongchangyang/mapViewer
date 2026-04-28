@@ -1,6 +1,6 @@
-# RESOLVE Ecoregions — Classes
+# WWF/RESOLVE Ecoregions — Classes
 
-Class list for the [RESOLVE Ecoregions 2017](https://ecoregions.appspot.com/) dataset (Dinerstein et al., 2017). Of the 846 terrestrial ecoregions worldwide, 17 are present in Kenya. Colors and ecoregion names are taken directly from the source shapefile's `COLOR` and `ECO_NAME` attributes.
+Class list for the [WWF/RESOLVE Ecoregions 2017](https://ecoregions.appspot.com/) dataset (Dinerstein et al., 2017). Of the 846 terrestrial ecoregions worldwide, 17 are present in Kenya. Colors and ecoregion names are taken directly from the source shapefile's `COLOR` and `ECO_NAME` attributes.
 
 <table>
 <thead><tr><th>Map value</th><th>Color</th><th>Biome</th><th>Ecoregion (ECO_NAME)</th></tr></thead>

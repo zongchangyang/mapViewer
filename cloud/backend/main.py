@@ -63,7 +63,7 @@ DATASET_REGISTRY = {
         "resolution_m": 30,
     },
     "resolve_ecoregions": {
-        "display_name": "RESOLVE Ecoregions",
+        "display_name": "WWF/RESOLVE Ecoregions",
         "file_template": "resolve_ecoregions_{year}_cog.tif",
         "available_years": [2017],
         "resolution_m": 10,

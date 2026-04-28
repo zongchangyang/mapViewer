@@ -274,8 +274,8 @@
     ]
   },
   "resolve_ecoregions": {
-    "name": "RESOLVE Ecoregions",
-    "description": "RESOLVE Ecoregions 2017 — terrestrial ecoregions of the world (846 globally, 17 present in Kenya)",
+    "name": "WWF/RESOLVE Ecoregions",
+    "description": "WWF/RESOLVE Ecoregions 2017 — terrestrial ecoregions of the world (846 globally, 17 present in Kenya)",
     "source": "RESOLVE / Dinerstein et al. 2017 (BioScience)",
     "resolution": 250,
     "years_available": "2017",
