@@ -232,11 +232,14 @@ html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
   <div class="sidebar-section">
     <h3>Basemap</h3>
-    <div class="basemap-option" id="bm-osm" onclick="setBasemap('osm')">
-      OpenStreetMap
+    <div class="basemap-option" id="bm-google" onclick="setBasemap('google')">
+      Google Satellite
     </div>
     <div class="basemap-option active" id="bm-esri" onclick="setBasemap('esri')">
       ESRI World Imagery
+    </div>
+    <div class="basemap-option" id="bm-osm" onclick="setBasemap('osm')">
+      OpenStreetMap
     </div>
   </div>
 
@@ -439,6 +442,14 @@ var basemaps = {
     osm: L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}
+    ),
+    google: L.tileLayer(
+        'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        {
+            attribution:'Imagery &copy; Google, Airbus, Maxar Technologies',
+            subdomains:['0','1','2','3'],
+            maxZoom:20
+        }
     )
 };
 basemaps.esri.addTo(map);
@@ -625,7 +636,9 @@ map.on('click', function(e){
 
     Promise.all([pixelP, esriP]).then(function(parts){
         var d = parts[0], esri = parts[1];
-        if((!d || d.error) && !esri) return;
+        var hasPixel = d && !d.error;
+        var isGoogle = currentBasemap === 'google';
+        if(!hasPixel && !esri && !isGoogle) return;
         var c = '<div class="pixel-info">';
         if(d && !d.error){
             if(d.class_name){

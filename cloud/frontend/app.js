@@ -40,6 +40,14 @@ var basemaps = {
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}
     ),
+    google: L.tileLayer(
+        'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        {
+            attribution:'Imagery &copy; Google, Airbus, Maxar Technologies',
+            subdomains:['0','1','2','3'],
+            maxZoom:20
+        }
+    ),
 };
 basemaps.esri.addTo(map);
 
@@ -406,7 +414,8 @@ map.on('click', function(e){
             val = Math.round(pixel.values[0]);
             decoded = decodePixelValue(val, activeOverlay.layerId);
         }
-        if (!decoded && !esri) return;
+        var isGoogle = currentBasemap === 'google';
+        if (!decoded && !esri && !isGoogle) return;
 
         var c = '<div class="pixel-info">';
         if (decoded) {
