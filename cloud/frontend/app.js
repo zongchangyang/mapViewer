@@ -34,11 +34,11 @@ var map = L.map('map', {
 var basemaps = {
     esri: L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {attribution:'Tiles &copy; Esri', maxZoom:18}
+        {attribution:'Tiles &copy; Esri', maxZoom:20, maxNativeZoom:18}
     ),
     osm: L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}
+        {attribution:'&copy; OpenStreetMap contributors', maxZoom:20, maxNativeZoom:19}
     ),
     google: L.tileLayer(
         'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
@@ -297,7 +297,7 @@ function applyLayer(datasetKey, year, layerId, tileUrl){
     showLoading();
     var layer = L.tileLayer(tileUrl, {
         opacity: currentOpacity,
-        maxZoom: 18,
+        maxZoom: 20,
         crossOrigin: true,
     });
     layer.on('load', hideLoading);
