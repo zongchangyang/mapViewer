@@ -46,6 +46,16 @@ DATASET_REGISTRY = {
         "file_template": "sunstone_kenya_lulc_{year}_9Classes_assembleV1_cog.tif",
         "available_years": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017],
     },
+    "sunstone_kenya_lulc_v2": {
+        "display_name": "Sunstone LULC V2",
+        "file_template": "sunstone_kenya_lulc_{year}_9Classes_V2_cog.tif",
+        "available_years": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018],
+    },
+    "sunstone_kenya_lulc_v3": {
+        "display_name": "Sunstone LULC V3",
+        "file_template": "sunstone_kenya_lulc_{year}_9Classes_V3_cog.tif",
+        "available_years": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018],
+    },
     "dynamicworld": {
         "display_name": "Dynamic World",
         "file_template": "dynamicworld_{year}_cog.tif",

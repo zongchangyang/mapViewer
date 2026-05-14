@@ -28,7 +28,7 @@ COG_PREFIX = os.environ.get("COG_PREFIX", "results/merged_cog").strip("/")
 DATASET_REGISTRY = {
     "sunstone_kenya_lulc_9C": {
         "display_name": "Sunstone LULC",
-        "file_template": "sunstone_kenya_lulc_{year}_9Classes_assembleV1_cog.tif",
+        "file_template": "sunstone_kenya_lulc_{year}_9Classes_V3_cog.tif",
         "available_years": [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017],
         "resolution_m": 10,
     },

@@ -273,6 +273,44 @@
       { "value": 8, "name": "Water", "color": "#0064C8" }
     ]
   },
+  "sunstone_kenya_lulc_v2": {
+    "name": "Sunstone Kenya Land Cover V2",
+    "description": "sunstone_lulc_9classes Kenya 10-meter Land Cover Change Dataset, Version 2",
+    "source": "Sunstone Institute",
+    "resolution": 10,
+    "years_available": "2018-2025",
+    "classes": [
+      { "value": -1, "name": "No Data", "color": "#000000" },
+      { "value": 0, "name": "Bare Ground", "color": "#B4B4B4" },
+      { "value": 1, "name": "Built Area", "color": "#FA0000" },
+      { "value": 2, "name": "Cropland", "color": "#F096FF" },
+      { "value": 3, "name": "Flooded Vegetation", "color": "#7A87C6" },
+      { "value": 4, "name": "Grassland", "color": "#FFFF4C" },
+      { "value": 5, "name": "Mangroves", "color": "#00CF75" },
+      { "value": 6, "name": "Shrubland", "color": "#FFBB22" },
+      { "value": 7, "name": "Trees", "color": "#006400" },
+      { "value": 8, "name": "Water", "color": "#0064C8" }
+    ]
+  },
+  "sunstone_kenya_lulc_v3": {
+    "name": "Sunstone Kenya Land Cover V3",
+    "description": "sunstone_lulc_9classes Kenya 10-meter Land Cover Change Dataset, Version 3",
+    "source": "Sunstone Institute",
+    "resolution": 10,
+    "years_available": "2018-2025",
+    "classes": [
+      { "value": -1, "name": "No Data", "color": "#000000" },
+      { "value": 0, "name": "Bare Ground", "color": "#B4B4B4" },
+      { "value": 1, "name": "Built Area", "color": "#FA0000" },
+      { "value": 2, "name": "Cropland", "color": "#F096FF" },
+      { "value": 3, "name": "Flooded Vegetation", "color": "#7A87C6" },
+      { "value": 4, "name": "Grassland", "color": "#FFFF4C" },
+      { "value": 5, "name": "Mangroves", "color": "#00CF75" },
+      { "value": 6, "name": "Shrubland", "color": "#FFBB22" },
+      { "value": 7, "name": "Trees", "color": "#006400" },
+      { "value": 8, "name": "Water", "color": "#0064C8" }
+    ]
+  },
   "resolve_ecoregions": {
     "name": "WWF/RESOLVE Ecoregions",
     "description": "WWF/RESOLVE Ecoregions 2017 — terrestrial ecoregions of the world (846 globally, 17 present in Kenya)",
